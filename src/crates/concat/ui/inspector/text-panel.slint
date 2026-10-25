@@ -46,6 +46,8 @@ export component TextPanel inherits VerticalLayout {
     callback import-font();
     /// Keep this title's look for new titles and captions.
     callback set-default();
+    /// The look to every title on this one's lane.
+    callback apply-to-lane();
 
     /// Several titles selected together: every knob writes to all of them
     /// and the words, each title's own, are not offered.
@@ -313,6 +315,18 @@ export component TextPanel inherits VerticalLayout {
                 label: I18n.t("textPanel.useForNewTitles");
                 ghost: true;
                 clicked => { root.set-default(); }
+            }
+        }
+
+        // This look on every title of the lane: the captions a run laid
+        // down share one, so restyling them is one press, not one each.
+        Row {
+            label: "";
+            label-width: root.label-w;
+            Button {
+                label: I18n.t("textPanel.applyToLane");
+                ghost: true;
+                clicked => { root.apply-to-lane(); }
             }
         }
 

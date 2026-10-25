@@ -1564,6 +1564,19 @@ impl TextStyle {
             finite(self.background_padding_y, base.background_padding_y).max(0.0);
         self
     }
+
+    /// This title in `look`'s look - family, size, weight, colours,
+    /// stroke, shadow, background, spacing - keeping its own words and its
+    /// own box, which was drawn round those words. What CapCut's "apply to
+    /// all captions" does to each caption.
+    pub fn restyled(&self, look: &TextStyle) -> TextStyle {
+        TextStyle {
+            content: self.content.clone(),
+            max_width: self.max_width,
+            max_height: self.max_height,
+            ..look.clone()
+        }
+    }
 }
 
 impl Default for TextStyle {
@@ -2833,5 +2846,45 @@ impl Timeline {
             .iter()
             .map(|clip| clip.start + clip.duration)
             .fold(0.0, f64::max)
+    }
+}
+
+#[cfg(test)]
+mod restyle_tests {
+    use super::TextStyle;
+
+    /// A caption restyled takes every part of the look but the words and
+    /// the box drawn round them.
+    #[test]
+    fn a_restyled_title_keeps_its_words_and_box() {
+        let caption = TextStyle {
+            content: "第二条字幕".to_owned(),
+            max_width: 0.4,
+            ..TextStyle::default()
+        };
+        let look = TextStyle {
+            content: "第一条".to_owned(),
+            font_family: "Noto Sans SC".to_owned(),
+            font_size: 0.05,
+            color: "#ffde00".to_owned(),
+            stroke_width: 0.1,
+            stroke_color: "#000000ff".to_owned(),
+            max_width: 0.9,
+            ..TextStyle::default()
+        };
+        let restyled = caption.restyled(&look);
+        assert_eq!(restyled.content, "第二条字幕");
+        assert_eq!(restyled.max_width, 0.4);
+        assert_eq!(restyled.font_family, "Noto Sans SC");
+        assert_eq!(restyled.color, "#ffde00");
+        assert_eq!(restyled.stroke_width, 0.1);
+        assert_eq!(
+            restyled,
+            TextStyle {
+                content: caption.content.clone(),
+                max_width: 0.4,
+                ..look
+            }
+        );
     }
 }
