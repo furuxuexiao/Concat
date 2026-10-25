@@ -22,7 +22,14 @@ import { Switch } from "../inspector/controls.slint";
 // big they are, and one button. While it runs
 // the sheet is the progress report: a transcription knows how far through
 // the sound it is, so it gets a real bar and not a sweep. The language is
-// the transcriber's to work out.
+// the transcriber's to work out unless one is picked: Chinese picked, or
+// heard, is written in the characters asked for, with its punctuation.
+//
+// A transcription is cut into lines as CapCut cuts them: at the
+// punctuation, as long as the line length says, the closing comma
+// dropped when the switch says so. A script typed, or read from a text
+// file, while the voice switch is on is matched to the voice: the
+// captions are its words, timed by what was heard (CapCut's 文稿匹配).
 //
 // On a desk it is a card floating over the editor (see Modal.floating): the
 // timeline stays live under it, so the clip it transcribes follows the
@@ -61,6 +68,13 @@ export struct CaptionsSheetData {
     ready: bool,
     /// Why the last run failed, when it did.
     message: string,
+    /// Row in the language list: 0 heard, 1 Simplified Chinese, 2
+    /// Traditional Chinese, 3 English.
+    language: int,
+    /// 0 by the frame, 1 sixteen characters, 2 twenty-four.
+    line-length: int,
+    /// A line's closing comma or full stop is dropped.
+    drop-punctuation: bool,
 }
 
 export component CaptionsDialog inherits Modal {
@@ -78,6 +92,10 @@ export component CaptionsDialog inherits Modal {
     callback cancel();
     callback import-srt();
     callback export-srt();
+    callback language-changed(index: int);
+    callback line-length-changed(index: int);
+    callback drop-punctuation-toggled(on: bool);
+    callback import-script();
 
     property <bool> from-voice: root.data.from-voice;
 
@@ -103,7 +121,9 @@ export component CaptionsDialog inherits Modal {
     init => { root.draft = root.data.text; }
 
     VerticalLayout {
-        if !root.data.running && !root.from-voice: DialogSection {
+        // The script: the words themselves with the switch off; with it
+        // on, words to match to the voice, if there are any.
+        if !root.data.running: DialogSection {
             first: true;
             title: I18n.t("common.script");
 
@@ -147,9 +167,23 @@ export component CaptionsDialog inherits Modal {
                 if root.draft == "" && !script.has-focus: Text {
                     x: 10px;
                     y: 8px;
-                    text: I18n.t("captions.typeWordsPutScreen");
+                    width: parent.width - 20px;
+                    text: root.from-voice
+                        ? I18n.t("captions.matchScriptHint")
+                        : I18n.t("captions.typeWordsPutScreen");
                     color: Theme.fg-dim;
                     font-size: Theme.fs-lg;
+                    wrap: word-wrap;
+                }
+            }
+
+            HorizontalLayout {
+                alignment: start;
+                Button {
+                    label: I18n.t("captions.importScript");
+                    glyph: Glyph.import;
+                    ghost: true;
+                    clicked => { root.import-script(); }
                 }
             }
         }
@@ -183,7 +217,6 @@ export component CaptionsDialog inherits Modal {
         }
 
         if !root.data.running && root.from-voice: DialogSection {
-            first: true;
             title: I18n.t("common.transcriber");
 
             DialogRow {
@@ -205,6 +238,17 @@ export component CaptionsDialog inherits Modal {
                     placeholder: I18n.t("common.noneInstalled");
                     enabled: root.models.length > 0;
                     changed(index) => { root.model-changed(index); }
+                }
+            }
+
+            // Each language named in its own words, as Settings names the
+            // interface's.
+            DialogRow {
+                label: I18n.t("captions.language");
+                Select {
+                    options: [I18n.t("captions.languageAuto"), "简体中文", "繁體中文", "English"];
+                    current: root.data.language;
+                    changed(index) => { root.language-changed(index); }
                 }
             }
 
@@ -234,6 +278,36 @@ export component CaptionsDialog inherits Modal {
                     options: [I18n.t("common.small"), I18n.t("common.medium"), I18n.t("common.large")];
                     current: root.data.size;
                     changed(index) => { root.size-changed(index); }
+                }
+            }
+
+            if root.from-voice: DialogRow {
+                label: I18n.t("captions.lineLength");
+                SegmentedControl {
+                    options: [I18n.t("captions.lineByFrame"), "16", "24"];
+                    current: root.data.line-length;
+                    changed(index) => { root.line-length-changed(index); }
+                }
+            }
+
+            if root.from-voice: HorizontalLayout {
+                spacing: 10px;
+
+                Text {
+                    horizontal-stretch: 1;
+                    text: I18n.t("captions.dropEndPunctuation");
+                    color: Theme.fg;
+                    font-size: Theme.fs;
+                    vertical-alignment: center;
+                    wrap: word-wrap;
+                }
+
+                VerticalLayout {
+                    alignment: center;
+                    Switch {
+                        checked: root.data.drop-punctuation;
+                        toggled(on) => { root.drop-punctuation-toggled(on); }
+                    }
                 }
             }
 

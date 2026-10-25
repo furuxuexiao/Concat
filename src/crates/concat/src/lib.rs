@@ -2130,6 +2130,18 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
     app.on_captions_export_srt(on_window!(|state| {
         state.handle(Msg::Captions(CaptionsMsg::ExportSrt));
     }));
+    app.on_captions_language_changed(on_window!(|state, index: i32| {
+        state.handle(Msg::Captions(CaptionsMsg::LanguageChanged(index)));
+    }));
+    app.on_captions_line_length_changed(on_window!(|state, index: i32| {
+        state.handle(Msg::Captions(CaptionsMsg::LineLengthChanged(index)));
+    }));
+    app.on_captions_drop_punctuation_toggled(on_window!(|state, on: bool| {
+        state.handle(Msg::Captions(CaptionsMsg::DropPunctuationToggled(on)));
+    }));
+    app.on_captions_import_script(on_window!(|state| {
+        state.handle(Msg::Captions(CaptionsMsg::ImportScript));
+    }));
     app.on_speech_closed(on_window!(|state| {
         state.handle(Msg::Speech(SpeechMsg::Close));
     }));
