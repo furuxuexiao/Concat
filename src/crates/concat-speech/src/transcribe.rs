@@ -391,6 +391,22 @@ fn language_and_prompt<'a>(
     }
 }
 
+/// Whether `text` is whisper repeating its prompt rather than hearing
+/// anything: over sound it cannot make out - music, noise, a voice too
+/// rough - whisper falls back on the words it was started from, and the
+/// caption reads "以下是普通话的句子". Any eight letters in a row of the
+/// prompt, punctuation aside, give it away; no real sentence says them.
+fn echoes_prompt(text: &str, prompt: &str) -> bool {
+    const RUN: usize = 8;
+    let letters =
+        |text: &str| -> Vec<char> { text.chars().filter(|c| c.is_alphanumeric()).collect() };
+    let (text, prompt) = (letters(text), letters(prompt));
+    text.len() >= RUN
+        && prompt
+            .windows(RUN)
+            .any(|run| text.windows(RUN).any(|heard| heard == run))
+}
+
 /// A segment's tokens, as `(bytes, start, end)` in seconds, put together
 /// into pieces of whole characters. Whisper's tokens are bytes, and a CJK
 /// character is often two tokens' worth: its bytes are held until the
@@ -768,6 +784,10 @@ impl Transcriber {
                         Some((bytes, from, to))
                     })
                     .collect();
+                if prompt.is_some_and(|prompt| echoes_prompt(&text, prompt)) {
+                    log::info!("transcribe: dropped a segment that repeats the prompt: {text}");
+                    return None;
+                }
                 let mut kept = keep_segment(start, end, text)?;
                 kept.pieces = pieces_from_tokens(&tokens);
                 Some(kept)
@@ -899,6 +919,23 @@ mod tests {
         assert_eq!(language_and_prompt(Some("auto"), Some("ja")), ("ja", None));
         assert_eq!(language_and_prompt(None, None), ("auto", None));
         assert!(PROMPT_SIMPLIFIED.contains('，') && PROMPT_SIMPLIFIED.ends_with('。'));
+    }
+
+    /// Whisper repeating its prompt over sound it cannot make out is no
+    /// caption; a sentence that merely shares a word with it is.
+    #[test]
+    fn a_segment_repeating_the_prompt_is_dropped() {
+        assert!(echoes_prompt(
+            "这些人的设计是普通话的句子，使用简体中文，并加上标点符号。",
+            PROMPT_SIMPLIFIED
+        ));
+        assert!(echoes_prompt("以下是普通话的句子", PROMPT_SIMPLIFIED));
+        assert!(!echoes_prompt(
+            "欢迎大家来体验达摩院推出的语音识别模型。",
+            PROMPT_SIMPLIFIED
+        ));
+        assert!(!echoes_prompt("我们说普通话。", PROMPT_SIMPLIFIED));
+        assert!(!echoes_prompt("", PROMPT_SIMPLIFIED));
     }
 
     /// A character whisper spread over two tokens comes out whole, timed
