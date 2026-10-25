@@ -132,6 +132,9 @@ pub struct Preferences {
     /// How the voiceover panel was last set up.
     #[serde(default)]
     pub voiceover: VoiceoverPrefs,
+    /// How the captions sheet was last set up.
+    #[serde(default)]
+    pub captions: CaptionPrefs,
     /// Rebound shortcuts, by action id: the chord each was given, or ""
     /// for an action a rebind left with none. Absent is the shipped
     /// chord — the file holds what moved, not the whole table. Written
@@ -168,6 +171,35 @@ impl Default for VoiceoverPrefs {
             mute: true,
             gain_db: 0.0,
             prompt_speed: 1,
+        }
+    }
+}
+
+/// The captions sheet's choices for cutting a transcription into lines,
+/// kept from one run to the next.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct CaptionPrefs {
+    /// The language spoken, by the code the transcriber takes: "zh" for
+    /// Chinese in Simplified characters, "zh-Hant" in Traditional, "en".
+    /// None is the transcriber's to hear - unless the interface is in
+    /// Traditional Chinese, which starts on "zh-Hant"; see
+    /// `panes::captions`.
+    pub language: Option<String>,
+    /// How long a line may run: 0 by the frame (sixteen characters in a
+    /// tall one, twenty-four in a wide one), 1 sixteen, 2 twenty-four.
+    pub line_length: u8,
+    /// A line's closing comma or full stop is dropped, as CapCut's
+    /// captions do. On by default.
+    pub drop_end_punctuation: bool,
+}
+
+impl Default for CaptionPrefs {
+    fn default() -> Self {
+        CaptionPrefs {
+            language: None,
+            line_length: 0,
+            drop_end_punctuation: true,
         }
     }
 }

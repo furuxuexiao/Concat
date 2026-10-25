@@ -338,6 +338,120 @@ pub struct Segment {
     pub end: f64,
     /// What was said.
     pub text: String,
+    /// The same words a token at a time, each timed by whisper, for
+    /// cutting the segment into shorter lines that keep their own timing
+    /// (see `concat_project::caption_lines`). Empty when whisper gave no
+    /// token times; the segment's own then stand for all of it.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub pieces: Vec<Piece>,
+}
+
+/// A run of a segment's words and when it was said, in seconds from the
+/// window's start.
+#[derive(Serialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct Piece {
+    /// Whole characters: a CJK character whisper spread over two tokens is
+    /// one piece.
+    pub text: String,
+    /// Seconds from the window's start.
+    pub start: f64,
+    /// Seconds from the window's start.
+    pub end: f64,
+}
+
+/// What a Chinese transcription is started from: whisper continues the
+/// text it is prompted with, so a prompt in Simplified characters with
+/// its punctuation in place gets captions in Simplified, punctuated. Left
+/// to itself whisper as often writes Traditional, and runs a whole
+/// phrase together without a comma.
+const PROMPT_SIMPLIFIED: &str = "以下是普通话的句子，使用简体中文，并加上标点符号。";
+/// The same, for captions in Traditional characters.
+const PROMPT_TRADITIONAL: &str = "以下是普通話的句子，使用繁體中文，並加上標點符號。";
+
+/// The language whisper is told, and the prompt it starts from, for a
+/// request's `language`: `None` or "auto" is whisper's to detect, "zh" is
+/// Chinese in Simplified characters and "zh-Hant" in Traditional, and any
+/// other code is passed on as it is. `detected` is what the detection
+/// heard, when it ran: Chinese heard is captioned in Simplified, as if it
+/// had been asked for.
+fn language_and_prompt<'a>(
+    asked: Option<&'a str>,
+    detected: Option<&'a str>,
+) -> (&'a str, Option<&'static str>) {
+    match asked.filter(|code| !code.is_empty() && *code != "auto") {
+        Some("zh" | "zh-Hans") => ("zh", Some(PROMPT_SIMPLIFIED)),
+        Some("zh-Hant") => ("zh", Some(PROMPT_TRADITIONAL)),
+        Some(code) => (code, None),
+        None => match detected {
+            Some("zh") => ("zh", Some(PROMPT_SIMPLIFIED)),
+            Some(code) => (code, None),
+            None => ("auto", None),
+        },
+    }
+}
+
+/// Whether `text` is whisper repeating its prompt rather than hearing
+/// anything: over sound it cannot make out - music, noise, a voice too
+/// rough - whisper falls back on the words it was started from, and the
+/// caption reads "以下是普通话的句子". Any eight letters in a row of the
+/// prompt, punctuation aside, give it away; no real sentence says them.
+fn echoes_prompt(text: &str, prompt: &str) -> bool {
+    const RUN: usize = 8;
+    let letters =
+        |text: &str| -> Vec<char> { text.chars().filter(|c| c.is_alphanumeric()).collect() };
+    let (text, prompt) = (letters(text), letters(prompt));
+    text.len() >= RUN
+        && prompt
+            .windows(RUN)
+            .any(|run| text.windows(RUN).any(|heard| heard == run))
+}
+
+/// A segment's tokens, as `(bytes, start, end)` in seconds, put together
+/// into pieces of whole characters. Whisper's tokens are bytes, and a CJK
+/// character is often two tokens' worth: its bytes are held until the
+/// character is whole, and the piece is timed from the first token to the
+/// last. Bytes that never make a character are dropped.
+fn pieces_from_tokens(tokens: &[(Vec<u8>, f64, f64)]) -> Vec<Piece> {
+    let mut pieces = Vec::new();
+    let mut pending: Vec<u8> = Vec::new();
+    let mut pending_start = 0.0;
+    for (bytes, start, end) in tokens {
+        if pending.is_empty() {
+            pending_start = *start;
+        }
+        pending.extend_from_slice(bytes);
+        let whole = match std::str::from_utf8(&pending) {
+            Ok(text) => text.len(),
+            // An incomplete character at the end waits for the next token.
+            Err(error) if error.error_len().is_none() => error.valid_up_to(),
+            // Bytes that are no character at all.
+            Err(_) => {
+                let text = String::from_utf8_lossy(&pending).replace('\u{FFFD}', "");
+                if !text.is_empty() {
+                    pieces.push(Piece {
+                        text,
+                        start: pending_start,
+                        end: end.max(pending_start),
+                    });
+                }
+                pending.clear();
+                continue;
+            }
+        };
+        if whole > 0 {
+            let text = String::from_utf8(pending.drain(..whole).collect())
+                .expect("checked as UTF-8 above");
+            pieces.push(Piece {
+                text,
+                start: pending_start,
+                end: end.max(pending_start),
+            });
+            // What is left is the start of a character this token began.
+            pending_start = *start;
+        }
+    }
+    pieces
 }
 
 /// What to transcribe.
@@ -356,6 +470,12 @@ pub struct TranscribeRequest {
     pub window: f64,
     /// Which model to use, e.g. "base.en".
     pub model_id: String,
+    /// The language spoken, as whisper names it: "en", "ja", ... ; "zh"
+    /// for Chinese in Simplified characters and "zh-Hant" for Traditional.
+    /// `None` or "auto" leaves it to whisper to hear. An English-only
+    /// model is always told English.
+    #[serde(default)]
+    pub language: Option<String>,
 }
 
 struct LoadedModel {
@@ -556,16 +676,38 @@ impl Transcriber {
             .unwrap_or(4);
         let mut params = FullParams::new(SamplingStrategy::Greedy { best_of: 1 });
         params.set_n_threads(threads as i32);
-        // The language is whisper's to hear, when it can hear more than
-        // one: a multilingual model detects it from the first window. An
-        // English-only model asked for "auto" still runs the detection,
-        // over a vocabulary it was never trained on, and "hears" Thai at
-        // one percent - so it is simply told English.
-        params.set_language(Some(if context.is_multilingual() {
-            "auto"
+        // The language is the request's, or whisper's to hear when it
+        // can hear more than one. An English-only model asked for "auto"
+        // still runs the detection, over a vocabulary it was never
+        // trained on, and "hears" Thai at one percent - so it is simply
+        // told English. A multilingual model asked to hear it does so
+        // here, from the first thirty seconds, rather than inside the
+        // run: Chinese heard wants its prompt, and the prompt has to be
+        // given before the run begins.
+        let asked = request.language.as_deref();
+        let detected = if context.is_multilingual()
+            && asked.is_none_or(|code| code.is_empty() || code == "auto")
+        {
+            detect_language(&mut state, &samples, threads)
         } else {
-            "en"
-        }));
+            None
+        };
+        let (language, prompt) = if context.is_multilingual() {
+            language_and_prompt(asked, detected)
+        } else {
+            ("en", None)
+        };
+        log::info!(
+            "transcribe: language {language}{}",
+            if detected.is_some() { " (heard)" } else { "" }
+        );
+        params.set_language(Some(language));
+        if let Some(prompt) = prompt {
+            params.set_initial_prompt(prompt);
+        }
+        // Each token's own time, so a long phrase can be cut into lines
+        // that come up as their words are said.
+        params.set_token_timestamps(true);
         params.set_print_special(false);
         params.set_print_progress(false);
         params.set_print_realtime(false);
@@ -618,6 +760,9 @@ impl Transcriber {
             return Err("transcription cancelled".to_owned());
         }
 
+        // Ids from the end of text up are whisper's own markers -
+        // timestamps, the language, the task - and not words.
+        let first_special = context.token_eot();
         Ok(state
             .as_iter()
             .filter_map(|segment| {
@@ -626,7 +771,26 @@ impl Transcriber {
                 let end = segment.end_timestamp() as f64 / 100.0;
                 let (start, end) = on_speech(start, end, &speech);
                 let text = segment.to_str_lossy().ok()?.trim().to_owned();
-                keep_segment(start, end, text)
+                let tokens: Vec<(Vec<u8>, f64, f64)> = (0..segment.n_tokens())
+                    .filter_map(|index| segment.get_token(index))
+                    .filter(|token| token.token_id() < first_special)
+                    .filter_map(|token| {
+                        let data = token.token_data();
+                        let bytes = token.to_bytes().ok()?.to_vec();
+                        // Inside the segment's span as the voice detector
+                        // drew it in, so no line outlasts its phrase.
+                        let from = (data.t0 as f64 / 100.0).clamp(start, end);
+                        let to = (data.t1 as f64 / 100.0).clamp(from, end);
+                        Some((bytes, from, to))
+                    })
+                    .collect();
+                if prompt.is_some_and(|prompt| echoes_prompt(&text, prompt)) {
+                    log::info!("transcribe: dropped a segment that repeats the prompt: {text}");
+                    return None;
+                }
+                let mut kept = keep_segment(start, end, text)?;
+                kept.pieces = pieces_from_tokens(&tokens);
+                Some(kept)
             })
             .collect())
     }
@@ -649,7 +813,33 @@ fn keep_segment(start: f64, end: f64, text: String) -> Option<Segment> {
     if text.is_empty() || (text.starts_with('[') && text.ends_with(']')) {
         return None;
     }
-    (end > start).then_some(Segment { start, end, text })
+    (end > start).then_some(Segment {
+        start,
+        end,
+        text,
+        pieces: Vec::new(),
+    })
+}
+
+/// The language whisper hears in the first thirty seconds of `samples`,
+/// by its code ("zh", "en", ...). None when the detection cannot run: the
+/// run then detects it itself, as it always did.
+fn detect_language(
+    state: &mut whisper_rs::WhisperState,
+    samples: &[f32],
+    threads: usize,
+) -> Option<&'static str> {
+    let first = &samples[..samples.len().min(16_000 * 30)];
+    let heard = state
+        .pcm_to_mel(first, threads)
+        .and_then(|()| state.lang_detect(0, threads));
+    match heard {
+        Ok((id, _)) => whisper_rs::get_lang_str(id),
+        Err(error) => {
+            log::warn!("transcribe: could not detect the language: {error}");
+            None
+        }
+    }
 }
 
 #[cfg(test)]
@@ -677,6 +867,7 @@ mod tests {
                     source_start: 0.0,
                     window,
                     model_id,
+                    language: std::env::var("CONCAT_CAPTION_LANGUAGE").ok(),
                 },
                 |_| {},
             )
@@ -705,6 +896,70 @@ mod tests {
         // Over no detected speech, or with no detector: whisper's times.
         assert_eq!(on_speech(40.0, 45.0, &speech), (40.0, 45.0));
         assert_eq!(on_speech(0.0, 7.0, &[]), (0.0, 7.0));
+    }
+
+    /// Chinese asked for, or heard, is prompted in the characters it is to
+    /// be written in; any other language is told as it is, with nothing
+    /// to start from.
+    #[test]
+    fn chinese_is_prompted_in_the_script_asked_for() {
+        assert_eq!(
+            language_and_prompt(Some("zh"), None),
+            ("zh", Some(PROMPT_SIMPLIFIED))
+        );
+        assert_eq!(
+            language_and_prompt(Some("zh-Hant"), Some("zh")),
+            ("zh", Some(PROMPT_TRADITIONAL))
+        );
+        assert_eq!(language_and_prompt(Some("en"), Some("zh")), ("en", None));
+        assert_eq!(
+            language_and_prompt(None, Some("zh")),
+            ("zh", Some(PROMPT_SIMPLIFIED))
+        );
+        assert_eq!(language_and_prompt(Some("auto"), Some("ja")), ("ja", None));
+        assert_eq!(language_and_prompt(None, None), ("auto", None));
+        assert!(PROMPT_SIMPLIFIED.contains('，') && PROMPT_SIMPLIFIED.ends_with('。'));
+    }
+
+    /// Whisper repeating its prompt over sound it cannot make out is no
+    /// caption; a sentence that merely shares a word with it is.
+    #[test]
+    fn a_segment_repeating_the_prompt_is_dropped() {
+        assert!(echoes_prompt(
+            "这些人的设计是普通话的句子，使用简体中文，并加上标点符号。",
+            PROMPT_SIMPLIFIED
+        ));
+        assert!(echoes_prompt("以下是普通话的句子", PROMPT_SIMPLIFIED));
+        assert!(!echoes_prompt(
+            "欢迎大家来体验达摩院推出的语音识别模型。",
+            PROMPT_SIMPLIFIED
+        ));
+        assert!(!echoes_prompt("我们说普通话。", PROMPT_SIMPLIFIED));
+        assert!(!echoes_prompt("", PROMPT_SIMPLIFIED));
+    }
+
+    /// A character whisper spread over two tokens comes out whole, timed
+    /// from the first token to the second.
+    #[test]
+    fn split_characters_are_put_back_together() {
+        let ni = "你".as_bytes();
+        let hao = "好".as_bytes();
+        let tokens = vec![
+            (ni.to_vec(), 0.0, 0.5),
+            (hao[..1].to_vec(), 0.5, 0.7),
+            (hao[1..].to_vec(), 0.7, 1.0),
+            (" ok".as_bytes().to_vec(), 1.0, 1.2),
+            (vec![0xFF], 1.2, 1.3),
+        ];
+        let pieces = pieces_from_tokens(&tokens);
+        let seen: Vec<(&str, f64, f64)> = pieces
+            .iter()
+            .map(|piece| (piece.text.as_str(), piece.start, piece.end))
+            .collect();
+        assert_eq!(
+            seen,
+            [("你", 0.0, 0.5), ("好", 0.5, 1.0), (" ok", 1.0, 1.2)]
+        );
     }
 
     #[test]
@@ -770,6 +1025,7 @@ mod real_audio {
             source_start: 0.0,
             window: 30.0,
             model_id: "tiny.en".to_owned(),
+            language: None,
         };
         let segments = transcriber
             .transcribe(&dirs, &request, |stage| eprintln!("{stage:?}"))

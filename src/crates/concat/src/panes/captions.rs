@@ -15,11 +15,18 @@
 //!
 //! The sheet also reads a SubRip file in as captions, with the same look,
 //! and writes the timeline's captions out as one.
+//!
+//! A transcription is cut into lines the way CapCut cuts its captions:
+//! at the punctuation, no wider than the frame suits, the closing comma
+//! dropped (see [`concat_project::caption_lines`]). With a script typed
+//! or read in while the switch is on, the captions are the script's
+//! words, timed by what the transcriber heard - CapCut's 文稿匹配.
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use concat_project::Command;
+use concat_project::caption_lines::{self, LineRules, Timed};
 use concat_project::model::{ClipKind, TextStyle};
 use concat_project::srt;
 use concat_speech::JobStage;
@@ -70,6 +77,16 @@ pub enum CaptionsMsg {
     ImportSrt,
     /// The SubRip file chosen: its cues as captions.
     ImportSrtFrom(PathBuf),
+    /// Row in the sheet's language list; see [`LANGUAGES`].
+    LanguageChanged(i32),
+    /// How long a line may run: 0 by the frame, 1 short, 2 long.
+    LineLengthChanged(i32),
+    /// Drop the comma or full stop a line ends on.
+    DropPunctuationToggled(bool),
+    /// Asks for a plain-text script to read in.
+    ImportScript,
+    /// The script file chosen: its words as the sheet's script.
+    ImportScriptFrom(PathBuf),
     /// Asks where to write the captions as SubRip.
     ExportSrt,
     /// Where they go.
@@ -88,7 +105,16 @@ struct Subject {
     /// the sound in: what the run's timing is kept by.
     model: String,
     windows: f32,
+    /// How the words are cut into lines.
+    rules: LineRules,
+    /// The script the words are matched to, when one was given.
+    script: Option<String>,
 }
+
+/// The languages the sheet offers, by the code the transcriber takes:
+/// heard by the transcriber, Chinese in Simplified and in Traditional
+/// characters, and English. The sheet names each in its own words.
+const LANGUAGES: [Option<&str>; 4] = [None, Some("zh"), Some("zh-Hant"), Some("en")];
 
 /// Seconds whisper takes over one thirty-second window, per megabyte of
 /// model, before a run on the model has been timed: about a second for
@@ -174,6 +200,29 @@ impl CaptionsPane {
                 self.placement = (index.max(0) as usize).min(2);
             }
             CaptionsMsg::SizeChanged(index) => self.size = (index.max(0) as usize).min(2),
+            CaptionsMsg::LanguageChanged(index) => {
+                let index = (index.max(0) as usize).min(LANGUAGES.len() - 1);
+                studio.prefs.captions.language = LANGUAGES[index].map(str::to_owned);
+                studio.prefs.save(&studio.host.dirs);
+            }
+            CaptionsMsg::LineLengthChanged(index) => {
+                studio.prefs.captions.line_length = index.clamp(0, 2) as u8;
+                studio.prefs.save(&studio.host.dirs);
+            }
+            CaptionsMsg::DropPunctuationToggled(on) => {
+                studio.prefs.captions.drop_end_punctuation = on;
+                studio.prefs.save(&studio.host.dirs);
+            }
+            CaptionsMsg::ImportScript => crate::host::pick_files_then(
+                t("captions.importScript"),
+                Some((t("captions.plainText"), &["txt"])),
+                |studio, _, _, paths| {
+                    if let Some(path) = paths.into_iter().next() {
+                        studio.handle(Msg::Captions(CaptionsMsg::ImportScriptFrom(path)));
+                    }
+                },
+            ),
+            CaptionsMsg::ImportScriptFrom(path) => self.import_script(&path),
             CaptionsMsg::Begin => {
                 if self.from_voice {
                     self.run_sound(studio);
@@ -201,21 +250,19 @@ impl CaptionsPane {
                         };
                         let look = subject.look;
                         let base = studio.prefs.title_style.clone();
-                        let commands: Vec<Command> = segments
-                            .into_iter()
-                            .filter_map(|segment| {
-                                let text = segment.text.trim().to_owned();
-                                (!text.is_empty()).then(|| {
+                        let commands: Vec<Command> =
+                            caption_lines_of(&segments, subject.script.as_deref(), &subject.rules)
+                                .into_iter()
+                                .map(|line| {
                                     caption_clip(
-                                        text,
-                                        subject.start + segment.start / subject.speed,
-                                        ((segment.end - segment.start) / subject.speed).max(0.2),
+                                        line.text,
+                                        subject.start + line.start / subject.speed,
+                                        ((line.end - line.start) / subject.speed).max(0.2),
                                         look,
                                         base.as_ref(),
                                     )
                                 })
-                            })
-                            .collect();
+                                .collect();
                         let count = commands.len();
                         self.open = false;
                         if count == 0 {
@@ -251,6 +298,28 @@ impl CaptionsPane {
             CaptionsMsg::ImportSrtFrom(path) => self.import_srt(studio, &path),
             CaptionsMsg::ExportSrt => self.ask_export_srt(studio),
             CaptionsMsg::ExportSrtTo(path) => self.export_srt(studio, &path),
+        }
+    }
+
+    /// A plain-text file's words as the sheet's script: typed captions
+    /// with the switch off, the words a transcription is matched to with
+    /// it on.
+    fn import_script(&mut self, path: &Path) {
+        let text = std::fs::read(path)
+            .map_err(|error| error.to_string())
+            .and_then(|bytes| {
+                caption_lines::decode_script(&bytes).ok_or_else(|| t("captions.scriptNotUtf8"))
+            });
+        match text {
+            Ok(text) if text.trim().is_empty() => self.message = t("captions.nothingToCaptionYet"),
+            Ok(text) => {
+                self.text = text.trim().to_owned();
+                self.message.clear();
+            }
+            Err(error) => {
+                log::warn!("captions: could not read {}: {error}", path.display());
+                self.message = tf("captions.couldNotReadScript", &[&error]);
+            }
         }
     }
 
@@ -495,6 +564,7 @@ impl CaptionsPane {
             source_start: clip.source_start,
             window: clip.duration * clip.speed,
             model_id: model.clone(),
+            language: language(studio).map(str::to_owned),
         };
         let dirs = studio.host.dirs.clone();
         let transcriber = Arc::clone(&studio.host.transcriber);
@@ -518,12 +588,15 @@ impl CaptionsPane {
             (Stage::Loading, load),
             (Stage::Working, windows * per_window),
         ]);
+        let script = self.text.trim();
         self.subject = Some(Subject {
             start: clip.start,
             speed: clip.speed,
             look: self.look(),
             model,
             windows,
+            rules: line_rules(studio),
+            script: (!script.is_empty()).then(|| script.to_owned()),
         });
         self.running = true;
         self.message.clear();
@@ -577,8 +650,82 @@ impl CaptionsPane {
             .into(),
             ready: !installed(&studio.settings.transcribers).is_empty(),
             message: self.message.as_str().into(),
+            language: LANGUAGES
+                .iter()
+                .position(|code| *code == language(studio))
+                .unwrap_or(0) as i32,
+            line_length: i32::from(studio.prefs.captions.line_length.min(2)),
+            drop_punctuation: studio.prefs.captions.drop_end_punctuation,
         }
     }
+}
+
+/// The language a transcription is asked for: the one chosen in the sheet,
+/// or with none chosen, the transcriber's to hear - except under an
+/// interface in Traditional Chinese, where Chinese is meant to be written
+/// in Traditional characters, and hearing it would write Simplified.
+fn language(studio: &Studio) -> Option<&'static str> {
+    match studio.prefs.captions.language.as_deref() {
+        Some(code) => LANGUAGES
+            .iter()
+            .flatten()
+            .copied()
+            .find(|known| *known == code),
+        None if crate::i18n::current() == "zh-TW" => Some("zh-Hant"),
+        None => None,
+    }
+}
+
+/// How the sheet's choices cut lines: the line as long as the choice says,
+/// or by the frame - short in a tall one, a phone's, long in a wide one.
+fn line_rules(studio: &Studio) -> LineRules {
+    let prefs = &studio.prefs.captions;
+    let max_width = match prefs.line_length {
+        1 => LineRules::VERTICAL_WIDTH,
+        2 => LineRules::HORIZONTAL_WIDTH,
+        _ => {
+            let (width, height) = studio.output_size();
+            LineRules::width_for_frame(width, height)
+        }
+    };
+    LineRules {
+        max_width,
+        strip_trailing: prefs.drop_end_punctuation,
+        ..LineRules::default()
+    }
+}
+
+/// A transcription as caption lines, in the transcription's seconds: each
+/// segment a phrase of its timed tokens - or of itself, when whisper timed
+/// none - and with a script, the script's words timed by them. A script
+/// nothing in the speech lines up with leaves the words as heard.
+fn caption_lines_of(
+    segments: &[Segment],
+    script: Option<&str>,
+    rules: &LineRules,
+) -> Vec<caption_lines::Line> {
+    let heard: Vec<Vec<Timed>> = segments
+        .iter()
+        .map(|segment| {
+            if segment.pieces.is_empty() {
+                vec![Timed::new(
+                    segment.text.as_str(),
+                    segment.start,
+                    segment.end,
+                )]
+            } else {
+                segment
+                    .pieces
+                    .iter()
+                    .map(|piece| Timed::new(piece.text.as_str(), piece.start, piece.end))
+                    .collect()
+            }
+        })
+        .collect();
+    let matched = script
+        .map(|script| caption_lines::align_script(script, &heard))
+        .filter(|matched| !matched.is_empty());
+    caption_lines::lines(matched.as_ref().unwrap_or(&heard), rules)
 }
 
 /// Imported cues keep the file's timing, including captions shorter than
@@ -866,6 +1013,48 @@ fn wrap_caption(sentence: &str) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::{script_captions, source_label};
+    use concat_project::caption_lines::LineRules;
+    use concat_speech::transcribe::{Piece, Segment};
+
+    /// A transcription is cut at its punctuation and timed by its tokens;
+    /// with a script, the script's words are the captions.
+    #[test]
+    fn a_transcription_becomes_lines_and_a_script_takes_its_timing() {
+        let piece = |text: &str, start: f64| Piece {
+            text: text.to_owned(),
+            start,
+            end: start + 1.0,
+        };
+        let segments = [Segment {
+            start: 0.0,
+            end: 6.0,
+            text: "大家好，欢迎来到我的平道。".to_owned(),
+            pieces: vec![
+                piece("大家好", 0.0),
+                piece("，", 1.0),
+                piece("欢迎来到", 2.0),
+                piece("我的", 3.0),
+                piece("平道", 4.0),
+                piece("。", 5.0),
+            ],
+        }];
+        let rules = LineRules {
+            max_width: 10.0,
+            ..LineRules::default()
+        };
+        let heard = super::caption_lines_of(&segments, None, &rules);
+        let texts: Vec<&str> = heard.iter().map(|line| line.text.as_str()).collect();
+        assert_eq!(texts, ["大家好", "欢迎来到我的平道"]);
+        assert_eq!((heard[0].start, heard[0].end), (0.0, 1.0));
+        assert_eq!((heard[1].start, heard[1].end), (2.0, 5.0));
+        let matched =
+            super::caption_lines_of(&segments, Some("大家好！欢迎来到我的频道。"), &rules);
+        let texts: Vec<&str> = matched.iter().map(|line| line.text.as_str()).collect();
+        assert_eq!(texts, ["大家好！", "欢迎来到我的频道"]);
+        // A script that has nothing to do with the speech: the words heard.
+        let unrelated = super::caption_lines_of(&segments, Some("。"), &rules);
+        assert_eq!(unrelated.len(), 2);
+    }
 
     #[test]
     fn imported_srt_preserves_short_cues_and_multiline_text() {

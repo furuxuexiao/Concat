@@ -5769,6 +5769,56 @@ impl Studio {
         self.notify(&t("textPanel.newTitlesUseThisStyle"), false);
     }
 
+    /// Apply to all, as CapCut has it for captions: the selected title's
+    /// look goes to every title on its lane - which is where a run of
+    /// captions lands - each keeping its own words and box (see
+    /// `TextStyle::restyled`). One undo step. A locked lane is left alone.
+    pub fn apply_title_style_to_lane(&mut self) {
+        // A held edit to the look is part of the look being applied.
+        self.flush_commit();
+        let Some(source) = self
+            .edit_targets()
+            .first()
+            .and_then(|id| self.clip(id))
+            .filter(|clip| clip.kind == model::ClipKind::Text)
+            .cloned()
+        else {
+            return;
+        };
+        let Some(look) = source.text.clone() else {
+            return;
+        };
+        if self.locked(&source.track_id) {
+            return;
+        }
+        let commands: Vec<Command> = self
+            .timeline()
+            .clips
+            .iter()
+            .filter(|clip| {
+                clip.kind == model::ClipKind::Text
+                    && clip.track_id == source.track_id
+                    && clip.id != source.id
+            })
+            .filter_map(|clip| {
+                let own = clip.text.as_ref()?;
+                let restyled = own.restyled(&look);
+                (restyled != *own).then(|| Command::UpdateClip {
+                    clip_id: clip.id.clone(),
+                    patch: ClipPatch {
+                        text: Some(Some(restyled)),
+                        ..ClipPatch::default()
+                    },
+                })
+            })
+            .collect();
+        let count = commands.len();
+        if count > 0 {
+            self.apply(Command::Batch { commands });
+        }
+        self.notify(&tf("textPanel.lookAppliedToTitles", &[&count]), false);
+    }
+
     /// The inspector's gesture is over: what differs between the echo and
     /// the session becomes commands, as one batch.
     /// An inspector control changed something on the echo and wants it

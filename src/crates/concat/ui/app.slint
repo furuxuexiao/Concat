@@ -324,6 +324,10 @@ export component App inherits Window {
     callback captions-cancel();
     callback captions-import-srt();
     callback captions-export-srt();
+    callback captions-language-changed(index: int);
+    callback captions-line-length-changed(index: int);
+    callback captions-drop-punctuation-toggled(on: bool);
+    callback captions-import-script();
 
     in property <SpeechSheetData> speech;
     in property <[string]> speech-models;
@@ -728,6 +732,10 @@ export component App inherits Window {
             cancel => { root.captions-cancel(); }
             import-srt => { root.captions-import-srt(); }
             export-srt => { root.captions-export-srt(); }
+            language-changed(index) => { root.captions-language-changed(index); }
+            line-length-changed(index) => { root.captions-line-length-changed(index); }
+            drop-punctuation-toggled(on) => { root.captions-drop-punctuation-toggled(on); }
+            import-script => { root.captions-import-script(); }
         }
 
         SpeechDialog {

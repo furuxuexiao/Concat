@@ -896,6 +896,9 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
     editor.on_text_style_default(on_window!(|state| {
         state.use_title_style_for_new();
     }));
+    editor.on_text_style_to_lane(on_window!(|state| {
+        state.apply_title_style_to_lane();
+    }));
     editor.on_import_font(|| {
         Shell::with(|shell, _| {
             if shell.studio.borrow().session.is_none() {
@@ -2129,6 +2132,18 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
     }));
     app.on_captions_export_srt(on_window!(|state| {
         state.handle(Msg::Captions(CaptionsMsg::ExportSrt));
+    }));
+    app.on_captions_language_changed(on_window!(|state, index: i32| {
+        state.handle(Msg::Captions(CaptionsMsg::LanguageChanged(index)));
+    }));
+    app.on_captions_line_length_changed(on_window!(|state, index: i32| {
+        state.handle(Msg::Captions(CaptionsMsg::LineLengthChanged(index)));
+    }));
+    app.on_captions_drop_punctuation_toggled(on_window!(|state, on: bool| {
+        state.handle(Msg::Captions(CaptionsMsg::DropPunctuationToggled(on)));
+    }));
+    app.on_captions_import_script(on_window!(|state| {
+        state.handle(Msg::Captions(CaptionsMsg::ImportScript));
     }));
     app.on_speech_closed(on_window!(|state| {
         state.handle(Msg::Speech(SpeechMsg::Close));
