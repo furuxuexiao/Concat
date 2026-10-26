@@ -630,6 +630,18 @@ pub enum Command {
         /// The copy when true, the original when false.
         on: bool,
     },
+    /// Sets or clears a clip's frame interpolation link (补帧): the
+    /// original, the interpolated copy and which one it shows. Only the
+    /// link is stored here; pointing the clip at the copy is
+    /// [`Command::ReplaceClipMedia`]'s. Undoable. An unknown clip is a
+    /// no-op.
+    SetClipInterpolated {
+        /// The clip.
+        clip_id: String,
+        /// The link, or `None` to clear it.
+        #[serde(default)]
+        interpolated: Option<Enhanced>,
+    },
     /// A freeze frame at `time`: splits `clip_id`, inserts a still of
     /// `duration` on the same track, and ripples later clips on that track
     /// by `duration`. Video needs a probed `still` (host-extracted jpg);
@@ -1241,6 +1253,7 @@ pub fn apply(
         | Command::FreezeFrame { .. }
         | Command::ReplaceClipMedia { .. }
         | Command::SetClipEnhanced { .. }
+        | Command::SetClipInterpolated { .. }
         | Command::MergeClips { .. }
         | Command::ConsolidateClips { .. }
         | Command::RemoveClips { .. }) => clips::apply(project, mint, command),

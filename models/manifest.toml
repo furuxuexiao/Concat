@@ -84,6 +84,17 @@ sha256 = "1940a93ee08283a0a7286183186357b1688fe9fa8ede74604b424586aaddf112"
 licence = "BSD-3-Clause"
 upstream = "https://huggingface.co/CoderViking/realesr-general-x4v3-onnx/resolve/c6a971706797c7502945a2b4c4274fce4900d4ab/realesr-general-x4v3.onnx"
 
+# Frame interpolation: RIFE v4.9 from hzwer's Practical-RIFE (MIT,
+# Copyright (c) 2021 hzwer). Cutout family for the same reason as Enhance.
+[[model]]
+id = "interpolate-rife"
+family = "cutout"
+file = "rife49.onnx"
+bytes = 21458882
+sha256 = "76e4cef9ab42fa7dd4e8f6e4aba47462051e3faa969e4bca6479784fbab0ac6f"
+licence = "MIT"
+upstream = "https://huggingface.co/edgetools/rife/resolve/321b593c5f36c26f5b08fa2838dcf5eece382fa0/rife49.onnx"
+
 # ── Text to speech ───────────────────────────────────────────────────────
 # src/crates/concat-speech/src/tts.rs. Kokoro v1.0 multi-language, the
 # official sherpa-onnx conversions; the two differ only in quantisation.

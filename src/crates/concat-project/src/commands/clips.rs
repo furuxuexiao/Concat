@@ -485,7 +485,9 @@ pub(super) fn apply(
             // Bitwise so no assignment is short-circuited away.
             let applied = assign(&mut clip.media_id, media_id.clone())
                 | source_start.is_some_and(|start| assign(&mut clip.source_start, start.max(0.0)))
-                | assign(&mut clip.enhanced, link);
+                | assign(&mut clip.enhanced, link)
+                // Interpolation was of the media now replaced.
+                | assign(&mut clip.interpolated, None);
             if !applied {
                 return Ok(Outcome::default());
             }
@@ -514,6 +516,21 @@ pub(super) fn apply(
             Ok(Outcome {
                 created_id: None,
                 applied,
+            })
+        }
+
+        Command::SetClipInterpolated {
+            clip_id,
+            interpolated,
+        } => {
+            let timeline = project.active_mut();
+            let Some(index) = timeline.clips.iter().position(|clip| clip.id == clip_id) else {
+                return Ok(Outcome::default());
+            };
+            let clip = timeline.clip_at_mut(index);
+            Ok(Outcome {
+                created_id: None,
+                applied: assign(&mut clip.interpolated, interpolated),
             })
         }
 

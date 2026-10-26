@@ -37,6 +37,9 @@ pub enum ModelId {
     /// Real-ESRGAN's compact general model: a picture four times its size
     /// with its noise and compression gone, what Enhance is made of.
     Enhance,
+    /// RIFE v4.9 (Practical-RIFE): the frame between two frames, what
+    /// smooth slow motion and frame-rate conversion are made of.
+    Interpolate,
 }
 
 /// One model as the table describes it.
@@ -60,7 +63,7 @@ pub struct ModelSpec {
 }
 
 /// Every downloadable model.
-pub const MODELS: [ModelSpec; 5] = [
+pub const MODELS: [ModelSpec; 6] = [
     ModelSpec {
         id: ModelId::Person,
         file: "rvm-mobilenetv3.onnx",
@@ -101,6 +104,14 @@ pub const MODELS: [ModelSpec; 5] = [
         sha256: "1940a93ee08283a0a7286183186357b1688fe9fa8ede74604b424586aaddf112",
         licence: "BSD-3-Clause",
     },
+    ModelSpec {
+        id: ModelId::Interpolate,
+        file: "rife49.onnx",
+        upstream: "https://huggingface.co/edgetools/rife/resolve/321b593c5f36c26f5b08fa2838dcf5eece382fa0/rife49.onnx",
+        bytes: 21_458_882,
+        sha256: "76e4cef9ab42fa7dd4e8f6e4aba47462051e3faa969e4bca6479784fbab0ac6f",
+        licence: "MIT",
+    },
 ];
 
 impl ModelId {
@@ -120,6 +131,7 @@ impl ModelId {
             ModelId::BrushEncoder => "slimsam-77-encoder",
             ModelId::BrushDecoder => "slimsam-77-decoder",
             ModelId::Enhance => "realesr-general-x4v3",
+            ModelId::Interpolate => "rife-v4.9",
         }
     }
 }

@@ -5338,6 +5338,123 @@ mod tests {
     /// off shows the original, on shows the copy, each one undo step, and
     /// any other replacement - a reversed copy - ends the link.
     #[test]
+    fn a_clips_interpolation_link_is_set_undone_and_ended_by_new_media() {
+        use crate::commands::NewMedia;
+        use crate::model::{Enhanced, MediaKind};
+        let item = |path: &str| NewMedia {
+            path: path.into(),
+            name: path.into(),
+            duration: Some(10.0),
+            kind: MediaKind::Video,
+            width: Some(64),
+            height: Some(64),
+            frame_rate: Some(30.0),
+            frame_rate_fraction: Some("30/1".into()),
+            video_codec: None,
+            audio_codec: None,
+            has_audio: false,
+            audio_tracks: Vec::new(),
+            origin: None,
+            color_space: Default::default(),
+        };
+        let mut editor = Editor::new();
+        editor
+            .apply(Command::AddMedia {
+                item: item("/a.mp4"),
+            })
+            .expect("imports");
+        let original = editor.project().media[0].id.clone();
+        let track = editor.project().active().tracks[0].id.clone();
+        let clip = editor
+            .apply(Command::AddClip {
+                media_id: original.clone(),
+                track_id: track,
+                start: 0.0,
+                ripple: false,
+            })
+            .expect("places")
+            .created_id
+            .expect("a clip");
+        let shown = |editor: &Editor| {
+            editor
+                .project()
+                .active()
+                .clip(&clip)
+                .cloned()
+                .expect("there")
+        };
+        assert_eq!(shown(&editor).interpolated, None);
+        let link = Enhanced {
+            original: original.clone(),
+            copy: "m-copy".into(),
+            on: true,
+        };
+        let set = editor
+            .apply(Command::SetClipInterpolated {
+                clip_id: clip.clone(),
+                interpolated: Some(link.clone()),
+            })
+            .expect("sets");
+        assert!(set.applied);
+        assert_eq!(shown(&editor).interpolated, Some(link.clone()));
+        // Setting the same link again changes nothing.
+        let again = editor
+            .apply(Command::SetClipInterpolated {
+                clip_id: clip.clone(),
+                interpolated: Some(link.clone()),
+            })
+            .expect("same");
+        assert!(!again.applied);
+        editor.undo();
+        assert_eq!(shown(&editor).interpolated, None, "one undo step");
+        editor.redo();
+        assert_eq!(shown(&editor).interpolated, Some(link.clone()));
+        // An unknown clip is a no-op.
+        let unknown = editor
+            .apply(Command::SetClipInterpolated {
+                clip_id: "nope".into(),
+                interpolated: None,
+            })
+            .expect("no-op");
+        assert!(!unknown.applied);
+        // New media ends the interpolation, which was of the old media.
+        editor
+            .apply(Command::ReplaceClipMedia {
+                clip_id: clip.clone(),
+                item: item("/a-reversed.mp4"),
+                source_start: None,
+                enhanced: false,
+            })
+            .expect("replaces");
+        assert_eq!(shown(&editor).interpolated, None);
+        editor.undo();
+        assert_eq!(shown(&editor).interpolated, Some(link));
+    }
+
+    #[test]
+    fn a_clip_saved_before_interpolation_reads_without_it_and_round_trips() {
+        let mut clip = crate::model::Clip::default();
+        let mut json = serde_json::to_value(&clip).expect("serialises");
+        assert!(json.get("interpolated").is_none(), "absent is not written");
+        json.as_object_mut().expect("object").remove("interpolated");
+        let old: crate::model::Clip = serde_json::from_value(json).expect("old clip reads");
+        assert_eq!(old.interpolated, None);
+        let null: crate::model::Clip = serde_json::from_value(serde_json::json!({
+            "id": "c2", "mediaId": "m1", "trackId": "t1", "interpolated": null
+        }))
+        .expect("null reads");
+        assert_eq!(null.interpolated, None);
+        clip.interpolated = Some(crate::model::Enhanced {
+            original: "m1".into(),
+            copy: "m2".into(),
+            on: false,
+        });
+        let back: crate::model::Clip =
+            serde_json::from_str(&serde_json::to_string(&clip).expect("writes")).expect("reads");
+        assert_eq!(back.interpolated, clip.interpolated);
+    }
+
+    #[test]
     fn an_enhanced_clip_switches_between_copy_and_original() {
         use crate::commands::NewMedia;
         use crate::model::MediaKind;

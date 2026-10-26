@@ -173,6 +173,81 @@ pub fn frame_schedule(
     out
 }
 
+/// 补帧模型（RIFE v4.9），加载一次，逐对帧推理；见
+/// [`crate::models::ModelId::Interpolate`]。
+#[cfg(feature = "infer")]
+pub struct Interpolator {
+    model: crate::runtime::Model,
+}
+
+#[cfg(feature = "infer")]
+impl Interpolator {
+    /// 从模型文件加载。
+    pub fn load(file: &std::path::Path) -> Result<Interpolator, String> {
+        Ok(Interpolator {
+            model: crate::runtime::Model::from_file(file)?,
+        })
+    }
+
+    /// `a` 与 `b` 之间位于 `t`（0 为 `a`，1 为 `b`，夹紧到 0..1）的帧。
+    ///
+    /// 两帧须同尺寸；输入补边到 [`PAD_ALIGN`] 的倍数后送入模型
+    /// （输入 `img0`、`img1`、`timestep[1]`，输出 `output`），结果裁回原尺寸，alpha 为 255。
+    pub fn mid(
+        &mut self,
+        a: &concat_core::Frame,
+        b: &concat_core::Frame,
+        t: f32,
+    ) -> Result<concat_core::Frame, String> {
+        if !a.same_size_as(b) {
+            return Err("interpolate: 两帧尺寸不同".to_owned());
+        }
+        let (w, h) = (a.width(), a.height());
+        if w == 0 || h == 0 {
+            return Err("interpolate: 空帧".to_owned());
+        }
+        let (img0, pw, ph) = rgba_to_planar_rgb(a.pixels(), w, h);
+        let (img1, _, _) = rgba_to_planar_rgb(b.pixels(), w, h);
+        let dims = vec![1, 3, ph as usize, pw as usize];
+        let t = if t.is_nan() { 0.5 } else { t.clamp(0.0, 1.0) };
+        let answer = self.model.run(
+            vec![
+                crate::runtime::Input {
+                    name: "img0",
+                    dims: dims.clone(),
+                    data: img0.into(),
+                },
+                crate::runtime::Input {
+                    name: "img1",
+                    dims,
+                    data: img1.into(),
+                },
+                crate::runtime::Input {
+                    name: "timestep",
+                    dims: vec![1],
+                    data: vec![t].into(),
+                },
+            ],
+            &["output"],
+        )?;
+        let output = answer
+            .into_iter()
+            .next()
+            .ok_or("interpolate: 模型没有输出")?;
+        let want = 3 * pw as usize * ph as usize;
+        if output.data.len() < want {
+            return Err(format!(
+                "interpolate: 模型输出 {} 个值，少于 {}",
+                output.data.len(),
+                want
+            ));
+        }
+        let rgba = planar_rgb_to_rgba(&output.data, pw, ph, w, h);
+        concat_core::Frame::from_rgba(w, h, rgba)
+            .ok_or_else(|| "interpolate: 输出尺寸不符".to_owned())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

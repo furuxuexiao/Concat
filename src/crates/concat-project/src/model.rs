@@ -1304,7 +1304,9 @@ pub struct SpeedPoint {
     pub slope: Option<f64>,
 }
 
-/// A clip's Enhance, once it has a copy: see [`Clip::enhanced`].
+/// A clip's Enhance, once it has a copy: see [`Clip::enhanced`]. The same
+/// shape links a clip to its interpolated copy: see [`Clip::interpolated`].
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Enhanced {
@@ -1898,6 +1900,13 @@ pub struct Clip {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(deserialize_with = "wire::maybe")]
     pub enhanced: Option<Enhanced>,
+    /// The clip's frame interpolation (补帧): the media it was cut from
+    /// and the interpolated copy of it, and which of the two it shows.
+    /// Absent until interpolation has made a copy; a project saved before
+    /// it existed reads as absent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "wire::maybe")]
+    pub interpolated: Option<Enhanced>,
     /// The overlay, when this is a text clip.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(deserialize_with = "wire::maybe")]
@@ -2010,6 +2019,7 @@ impl Clip {
             detached_from: None,
             transition_in: None,
             enhanced: None,
+            interpolated: None,
             text: None,
             shape: None,
             background: None,

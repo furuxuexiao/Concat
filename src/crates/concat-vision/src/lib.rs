@@ -67,6 +67,8 @@ pub use apply::{Mapping, cut, highlight};
 pub use brush::{Brush, Embedding};
 #[cfg(feature = "infer")]
 pub use enhance::Enhancer;
+#[cfg(feature = "infer")]
+pub use interpolate::Interpolator;
 pub use mask::Mask;
 pub use models::ModelId;
 #[cfg(feature = "infer")]
