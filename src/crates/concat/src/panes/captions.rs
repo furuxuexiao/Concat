@@ -664,7 +664,7 @@ impl CaptionsPane {
 /// or with none chosen, the transcriber's to hear - except under an
 /// interface in Traditional Chinese, where Chinese is meant to be written
 /// in Traditional characters, and hearing it would write Simplified.
-pub(crate) fn language(studio: &Studio) -> Option<&'static str> {
+fn language(studio: &Studio) -> Option<&'static str> {
     match studio.prefs.captions.language.as_deref() {
         Some(code) => LANGUAGES
             .iter()

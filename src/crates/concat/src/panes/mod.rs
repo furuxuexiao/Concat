@@ -23,7 +23,6 @@ pub mod pace;
 pub mod project;
 pub mod relink;
 pub mod settings;
-pub mod smart_cut;
 pub mod sounds;
 pub mod speech;
 pub mod start;
@@ -39,8 +38,6 @@ pub enum Msg {
     Settings(settings::SettingsMsg),
     /// To the captions sheet.
     Captions(captions::CaptionsMsg),
-    /// To the smart cut sheet.
-    SmartCut(smart_cut::SmartCutMsg),
     /// To the speech sheet.
     Speech(speech::SpeechMsg),
     /// To the missing media dialog.
@@ -89,7 +86,6 @@ pub fn activity(msg: &Msg) -> Option<Activity> {
         )
         | Msg::Export(ExportMsg::Progress { .. })
         | Msg::Captions(CaptionsMsg::Progress(_))
-        | Msg::SmartCut(smart_cut::SmartCutMsg::Progress(_))
         | Msg::Speech(SpeechMsg::Progress(_))
         | Msg::Settings(SettingsMsg::ModelProgress { .. } | SettingsMsg::InstallProgress { .. }) => {
             return None;
@@ -119,15 +115,6 @@ pub fn activity(msg: &Msg) -> Option<Activity> {
         }
         Msg::Captions(CaptionsMsg::Finished(Err(error))) => {
             return Some(Activity::once(Info, format!("captions: failed, {error}")));
-        }
-        Msg::SmartCut(smart_cut::SmartCutMsg::Finished(Ok(segments))) => {
-            return Some(Activity::once(
-                Info,
-                format!("smartcut: transcribed, {} segments", segments.len()),
-            ));
-        }
-        Msg::SmartCut(smart_cut::SmartCutMsg::Finished(Err(error))) => {
-            return Some(Activity::once(Info, format!("smartcut: failed, {error}")));
         }
         Msg::Speech(SpeechMsg::Begin) => {
             return Some(Activity::once(Info, "speech: started".to_owned()));
