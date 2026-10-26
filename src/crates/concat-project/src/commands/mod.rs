@@ -598,6 +598,24 @@ pub enum Command {
         /// The cut point, in timeline seconds.
         time: f64,
     },
+    /// Ripple-deletes stretches of timeline time - the cut under text-based
+    /// editing. Spans are merged first and taken out last-first. A video or
+    /// audio clip a span crosses is split at the span's ends the way
+    /// [`Command::SplitClips`] splits (fresh tail ids, source-continuous),
+    /// and the pieces inside the span go. Any other clip - a title, a still,
+    /// a layer, a shape - is shrunk by the part of the span it covered, as
+    /// [`crate::smart_cut::ripple_time`] maps its ends, and removed when
+    /// less than a frame of the active timeline is left. Then every later
+    /// clip on the affected tracks moves left by the span's length. One
+    /// command, so one undo step.
+    RemoveSpans {
+        /// Timeline seconds `(start, end)` to take out; overlapping or
+        /// touching spans count once, empty ones are ignored.
+        spans: Vec<(f64, f64)>,
+        /// The tracks to cut. Empty cuts every track.
+        #[serde(default)]
+        track_ids: Vec<String>,
+    },
     /// Points a clip at another file - the enhanced or reversed copy of
     /// its media - adding the file to the bin first when it is not there.
     /// The clip's length, looks and name are kept, and its in-point unless
@@ -1102,6 +1120,9 @@ impl Command {
             Command::MoveClips { moves } => bad(moves.iter().map(|wanted| wanted.start)),
             Command::TrimClip { delta, .. } => bad([*delta]),
             Command::SplitClips { time, .. } => bad([*time]),
+            Command::RemoveSpans { spans, .. } => {
+                bad(spans.iter().flat_map(|&(start, end)| [start, end]))
+            }
             Command::FreezeFrame { time, duration, .. } => bad([*time]) || bad(*duration),
             Command::ReplaceClipMedia {
                 item, source_start, ..
@@ -1238,6 +1259,7 @@ pub fn apply(
         | Command::MoveClips { .. }
         | Command::TrimClip { .. }
         | Command::SplitClips { .. }
+        | Command::RemoveSpans { .. }
         | Command::FreezeFrame { .. }
         | Command::ReplaceClipMedia { .. }
         | Command::SetClipEnhanced { .. }
