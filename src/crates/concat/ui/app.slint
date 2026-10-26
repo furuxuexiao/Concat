@@ -28,6 +28,7 @@ import { ProjectDialog, ProjectSheetData } from "dialogs/project.slint";
 import { RelinkDialog, RelinkData, MissingMediaItem } from "dialogs/relink.slint";
 import { ConfirmData, ConfirmDialog } from "dialogs/confirm.slint";
 import { CaptionsDialog, CaptionsSheetData } from "dialogs/captions.slint";
+import { SmartCutDialog, SmartCutSheetData, SmartCutRowData } from "dialogs/smart-cut.slint";
 import { SpeechDialog, SpeechSheetData } from "dialogs/speech.slint";
 import { AvatarData } from "primitives/avatar.slint";
 import { VoiceoverData, VoiceoverPanel } from "dialogs/voiceover.slint";
@@ -68,7 +69,7 @@ export {
     SelectedClipData, SelectedTransitionData, StageGuideData, StageItemData, TextAlignment, TimelineTabData,
     TimelineTool, TrackData, TrackSize, MenuItemData, MenuRow, ExportData, ExportPhase, ModelData, SettingsData,
     ChipOption, RecentProjectData, StartData, SystemFactData, ToastData, ProjectSheetData,
-    CaptionsSheetData, SpeechSheetData, VoiceoverData, SoundCardData, Sounds, VoiceCardData,
+    CaptionsSheetData, SmartCutSheetData, SmartCutRowData, SpeechSheetData, VoiceoverData, SoundCardData, Sounds, VoiceCardData,
 }
 
 export component App inherits Window {
@@ -122,7 +123,7 @@ export component App inherits Window {
         }
     }
     property <bool> sheet-open: root.export.open || root.settings.open
-        || root.project-sheet.open || root.captions.open || root.speech.open
+        || root.project-sheet.open || root.captions.open || root.smart-cut.open || root.speech.open
         || root.start.composing;
     changed sheet-open => {
         if (!root.sheet-open) {
@@ -328,6 +329,19 @@ export component App inherits Window {
     callback captions-line-length-changed(index: int);
     callback captions-drop-punctuation-toggled(on: bool);
     callback captions-import-script();
+    /// The smart cut sheet (智能剪口播): a clip's speech as text to cut by.
+    in property <SmartCutSheetData> smart-cut;
+    callback smart-cut-closed();
+    callback smart-cut-text-edited(text: string);
+    callback smart-cut-apply-text();
+    callback smart-cut-cut-toggled(row: int, on: bool);
+    callback smart-cut-select-all();
+    callback smart-cut-select-none();
+    callback smart-cut-pause-min-changed(seconds: float);
+    callback smart-cut-pause-keep-changed(seconds: float);
+    callback smart-cut-delete-selected();
+    callback smart-cut-retry();
+    callback smart-cut-cancel();
 
     in property <SpeechSheetData> speech;
     in property <[string]> speech-models;
@@ -534,8 +548,16 @@ export component App inherits Window {
                     if (!root.sheets-fill || !root.speech.running) { root.speech-closed(); }
                     return accept;
                 }
+                if (root.smart-cut.open && root.front-tool == "smart-cut") {
+                    root.smart-cut-closed();
+                    return accept;
+                }
                 if (root.captions.open) {
                     if (!root.sheets-fill || !root.captions.running) { root.captions-closed(); }
+                    return accept;
+                }
+                if (root.smart-cut.open) {
+                    root.smart-cut-closed();
                     return accept;
                 }
                 // A look being shown over the picture, and nothing above it.
@@ -736,6 +758,36 @@ export component App inherits Window {
             line-length-changed(index) => { root.captions-line-length-changed(index); }
             drop-punctuation-toggled(on) => { root.captions-drop-punctuation-toggled(on); }
             import-script => { root.captions-import-script(); }
+        }
+
+        SmartCutDialog {
+            fill: root.sheets-fill;
+            floating: !root.sheets-fill;
+            home-right: 72px;
+            home-top: 104px;
+            z: root.front-tool == "smart-cut" ? 1 : 0;
+            raised => { root.front-tool = "smart-cut"; }
+            inset-top: root.safe-area-insets.top;
+            inset-bottom: root.safe-area-insets.bottom;
+            inset-left: root.safe-area-insets.left;
+            inset-right: root.safe-area-insets.right;
+            x: 0;
+            y: 0;
+            width: root.width;
+            height: root.height;
+            data: root.smart-cut;
+
+            closed => { root.smart-cut-closed(); }
+            text-edited(text) => { root.smart-cut-text-edited(text); }
+            apply-text => { root.smart-cut-apply-text(); }
+            cut-toggled(row, on) => { root.smart-cut-cut-toggled(row, on); }
+            select-all => { root.smart-cut-select-all(); }
+            select-none => { root.smart-cut-select-none(); }
+            pause-min-changed(seconds) => { root.smart-cut-pause-min-changed(seconds); }
+            pause-keep-changed(seconds) => { root.smart-cut-pause-keep-changed(seconds); }
+            delete-selected => { root.smart-cut-delete-selected(); }
+            retry => { root.smart-cut-retry(); }
+            cancel => { root.smart-cut-cancel(); }
         }
 
         SpeechDialog {
