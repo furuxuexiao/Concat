@@ -122,8 +122,8 @@ impl SmartCutPane {
                     *checked = on;
                 }
             }
-            SmartCutMsg::SelectAll => self.checked.iter_mut().for_each(|c| *c = true),
-            SmartCutMsg::SelectNone => self.checked.iter_mut().for_each(|c| *c = false),
+            SmartCutMsg::SelectAll => self.checked.fill(true),
+            SmartCutMsg::SelectNone => self.checked.fill(false),
             SmartCutMsg::PauseMinChanged(seconds) => {
                 self.pause_min = f64::from(seconds).clamp(0.1, 10.0);
                 self.pause_keep = self.pause_keep.min(self.pause_min);
