@@ -114,6 +114,14 @@ pub enum Error {
         /// Its name.
         name: String,
     },
+
+    /// Export options that were refused before any file was touched - a
+    /// bitrate, sample rate, frame rate or width out of range.
+    #[error("invalid export options: {detail}")]
+    InvalidOptions {
+        /// What was out of range.
+        detail: String,
+    },
 }
 
 impl Error {
