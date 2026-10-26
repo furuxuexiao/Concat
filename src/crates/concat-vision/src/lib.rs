@@ -48,13 +48,16 @@ pub mod apply;
 #[cfg(feature = "infer")]
 pub mod brush;
 pub mod enhance;
+pub mod interpolate;
 pub mod mask;
 pub mod models;
 pub mod onnx;
+pub mod reframe;
 #[cfg(feature = "infer")]
 pub mod runtime;
 #[cfg(feature = "infer")]
 pub mod segment;
+pub mod shots;
 pub mod stabilize;
 pub mod store;
 pub mod strokes;
