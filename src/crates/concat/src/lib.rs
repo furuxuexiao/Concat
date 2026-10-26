@@ -101,6 +101,7 @@ use panes::monitor::MonitorMsg;
 use panes::project::ProjectMsg;
 use panes::relink::RelinkMsg;
 use panes::settings::SettingsMsg;
+use panes::smart_cut::SmartCutMsg;
 use panes::sounds::SoundsMsg;
 use panes::speech::SpeechMsg;
 use panes::start::StartMsg;
@@ -1606,6 +1607,13 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
                 state.handle(Msg::Captions(CaptionsMsg::OpenOnClip(id)));
                 return;
             }
+            if action.as_str() == "smart-cut" {
+                state.flush_commit();
+                state.transition_selected = None;
+                state.selection = vec![id.clone()];
+                state.handle(Msg::SmartCut(SmartCutMsg::OpenOnClip(id)));
+                return;
+            }
             state.clip_action(&id, action.as_str());
         }
     }));
@@ -2144,6 +2152,39 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
     }));
     app.on_captions_import_script(on_window!(|state| {
         state.handle(Msg::Captions(CaptionsMsg::ImportScript));
+    }));
+    app.on_smart_cut_closed(on_window!(|state| {
+        state.handle(Msg::SmartCut(SmartCutMsg::Close));
+    }));
+    app.on_smart_cut_text_edited(on_window!(|state, text: SharedString| {
+        state.handle(Msg::SmartCut(SmartCutMsg::TextEdited(text.to_string())));
+    }));
+    app.on_smart_cut_apply_text(on_window!(|state| {
+        state.handle(Msg::SmartCut(SmartCutMsg::ApplyText));
+    }));
+    app.on_smart_cut_cut_toggled(on_window!(|state, row: i32, on: bool| {
+        state.handle(Msg::SmartCut(SmartCutMsg::CutToggled(row, on)));
+    }));
+    app.on_smart_cut_select_all(on_window!(|state| {
+        state.handle(Msg::SmartCut(SmartCutMsg::SelectAll));
+    }));
+    app.on_smart_cut_select_none(on_window!(|state| {
+        state.handle(Msg::SmartCut(SmartCutMsg::SelectNone));
+    }));
+    app.on_smart_cut_pause_min_changed(on_window!(|state, seconds: f32| {
+        state.handle(Msg::SmartCut(SmartCutMsg::PauseMinChanged(seconds)));
+    }));
+    app.on_smart_cut_pause_keep_changed(on_window!(|state, seconds: f32| {
+        state.handle(Msg::SmartCut(SmartCutMsg::PauseKeepChanged(seconds)));
+    }));
+    app.on_smart_cut_delete_selected(on_window!(|state| {
+        state.handle(Msg::SmartCut(SmartCutMsg::DeleteSelected));
+    }));
+    app.on_smart_cut_retry(on_window!(|state| {
+        state.handle(Msg::SmartCut(SmartCutMsg::Retry));
+    }));
+    app.on_smart_cut_cancel(on_window!(|state| {
+        state.handle(Msg::SmartCut(SmartCutMsg::Cancel));
     }));
     app.on_speech_closed(on_window!(|state| {
         state.handle(Msg::Speech(SpeechMsg::Close));

@@ -1021,6 +1021,8 @@ pub struct Studio {
     pub drop: Option<DropPlan>,
     pub project_sheet: crate::panes::project::ProjectPane,
     pub captions: crate::panes::captions::CaptionsPane,
+    /// The smart cut sheet (智能剪口播).
+    pub smart_cut: crate::panes::smart_cut::SmartCutPane,
     pub speech: crate::panes::speech::SpeechPane,
     /// The library's Audio page: the user's own sounds.
     pub sounds: crate::panes::sounds::SoundsPane,
@@ -2417,6 +2419,7 @@ impl Studio {
             drop: None,
             project_sheet: crate::panes::project::ProjectPane::default(),
             captions: crate::panes::captions::CaptionsPane::default(),
+            smart_cut: crate::panes::smart_cut::SmartCutPane::default(),
             speech: crate::panes::speech::SpeechPane::with_saved(&host.dirs),
             sounds: crate::panes::sounds::SoundsPane::open(&host.dirs),
             source: None,
@@ -8854,6 +8857,7 @@ impl Studio {
         self.proxied.clear();
         self.captions.running = false;
         self.captions.pace = Default::default();
+        self.smart_cut = Default::default();
         self.speech.running = false;
         self.speech.pace = Default::default();
         // No dialog about files the project that just closed could not
@@ -8940,6 +8944,11 @@ impl Studio {
                 let mut pane = std::mem::take(&mut self.captions);
                 pane.update(msg, self);
                 self.captions = pane;
+            }
+            crate::panes::Msg::SmartCut(msg) => {
+                let mut pane = std::mem::take(&mut self.smart_cut);
+                pane.update(msg, self);
+                self.smart_cut = pane;
             }
             crate::panes::Msg::Speech(msg) => {
                 let mut pane = std::mem::take(&mut self.speech);
@@ -11527,6 +11536,7 @@ impl Studio {
                 .collect(),
         );
         app.set_captions(self.captions.data(self));
+        app.set_smart_cut(self.smart_cut.data());
         let voices = installed(&self.settings.voices);
         sync(
             &models.speech_models,
@@ -11815,6 +11825,16 @@ impl Studio {
                 Glyph::TextMark,
                 "",
                 self.clip_has_sound(clip),
+            ));
+            // The clip's speech as text to cut by, and the filler words,
+            // repeats and pauses a talking-head edit takes out. It cuts
+            // the timeline, so a locked track greys it.
+            rows.push(action(
+                "smart-cut",
+                t("smartCut.smartCut"),
+                Glyph::TextMark,
+                "",
+                !locked && self.clip_has_sound(clip),
             ));
             rows.push(rule());
         }
