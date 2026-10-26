@@ -17,6 +17,7 @@ pub mod audio;
 pub mod decode;
 pub mod encode;
 pub mod error;
+pub mod export_formats;
 mod feed;
 mod ffi;
 pub mod hardware;

@@ -29,7 +29,12 @@ log = "0.4"
 # SVG, drawn into a PNG FFmpeg can read; see svg.rs. The version Slint
 # already brings in, so nothing new is built.
 resvg = "0.48"
+# Export option types (export_formats.rs) cross the API as JSON.
+serde = { version = "1", features = ["derive"] }
 thiserror.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
 
 [lints]
 workspace = true
