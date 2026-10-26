@@ -236,6 +236,18 @@ own accelerator behind it where the runtime has one: CoreML on macOS and
 iOS, NNAPI on Android. How each platform carries the runtime is under
 "ONNX Runtime" above.
 
+## The vocal separation models
+
+Separating a voice from its music uses Spleeter's two-stem model by Deezer
+Research (https://github.com/deezer/spleeter, MIT; the pretrained weights
+are released under the same licence), in the fp16 ONNX conversion
+published by the sherpa-onnx project
+(https://github.com/k2-fsa/sherpa-onnx, Apache-2.0) at
+https://huggingface.co/csukuangfj/sherpa-onnx-spleeter-2stems-fp16,
+downloaded on first use: one network for the vocals and one for the
+accompaniment. They live beside the cutout models in `cutout-models` and
+are run by the same ONNX Runtime.
+
 ## The model mirror
 
 Every downloaded model named above is mirrored onto a release of Concat's own
@@ -247,8 +259,9 @@ mirror.
 
 Mirroring is redistribution, and each model keeps the licence it arrived
 under - Apache-2.0 for the Kokoro bundles, SlimSAM and IS-Net, CC-BY-4.0
-for Pocket TTS, BSD-3-Clause for Real-ESRGAN, MIT for Chatterbox Turbo and
-the whisper conversions, GPL-3.0 for Robust Video Matting. Those terms are met
+for Pocket TTS, BSD-3-Clause for Real-ESRGAN, MIT for Chatterbox Turbo,
+the whisper conversions and the Spleeter weights (whose ONNX conversion
+is Apache-2.0), GPL-3.0 for Robust Video Matting. Those terms are met
 by the attributions above and by the licence files each mirrored archive
 carries; a mirrored file is a verbatim copy, never a modification. Nothing
 in the mirror is bundled with the app, and Concat claims no rights over any

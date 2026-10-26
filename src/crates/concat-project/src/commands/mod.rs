@@ -550,6 +550,16 @@ pub enum Command {
         /// The settings, or None to take stabilization off.
         stabilize: Option<Stabilize>,
     },
+    /// Sets the beats found in a clip's audio, in seconds of source time.
+    /// Tidied on the way in: anything not finite or below zero is dropped,
+    /// and the rest sorted with duplicates removed. Empty clears them.
+    SetClipBeats {
+        /// The clip. An unknown id is a no-op.
+        clip_id: String,
+        /// The beats, in source seconds.
+        #[serde(default)]
+        beats: Vec<f64>,
+    },
     /// Paints one stroke onto a clip's cutout. A clip with no cutout gets a
     /// custom one; an automatic cutout becomes custom, since a stroke is a
     /// correction to it. A stroke with no points is a no-op.
@@ -1250,6 +1260,7 @@ pub fn apply(
         | Command::SetClipCutout { .. }
         | Command::AddCutoutStroke { .. }
         | Command::SetClipStabilize { .. }
+        | Command::SetClipBeats { .. }
         | Command::SetClipKey { .. }
         | Command::ClearClipKey { .. }
         | Command::ClearClipKeys { .. }

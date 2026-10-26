@@ -5435,6 +5435,110 @@ mod tests {
         assert!(!off.applied);
     }
 
+    /// A clip's beats are set tidied (sorted, deduplicated, nothing
+    /// negative or non-finite), each set is one undo step, and setting the
+    /// same beats again is a no-op.
+    #[test]
+    fn clip_beats_set_and_undo() {
+        use crate::commands::NewMedia;
+        use crate::model::MediaKind;
+        let mut editor = Editor::new();
+        editor
+            .apply(Command::AddMedia {
+                item: NewMedia {
+                    path: "/song.mp4".into(),
+                    name: "/song.mp4".into(),
+                    duration: Some(10.0),
+                    kind: MediaKind::Video,
+                    width: Some(64),
+                    height: Some(64),
+                    frame_rate: Some(30.0),
+                    frame_rate_fraction: Some("30/1".into()),
+                    video_codec: None,
+                    audio_codec: None,
+                    has_audio: true,
+                    audio_tracks: Vec::new(),
+                    origin: None,
+                    color_space: Default::default(),
+                },
+            })
+            .expect("imports");
+        let media = editor.project().media[0].id.clone();
+        let track = editor.project().active().tracks[0].id.clone();
+        let clip = editor
+            .apply(Command::AddClip {
+                media_id: media,
+                track_id: track,
+                start: 0.0,
+                ripple: false,
+            })
+            .expect("places")
+            .created_id
+            .expect("a clip");
+        let beats = |editor: &Editor| {
+            editor
+                .project()
+                .active()
+                .clip(&clip)
+                .expect("there")
+                .beats
+                .clone()
+        };
+        assert!(beats(&editor).is_empty());
+
+        let set = editor
+            .apply(Command::SetClipBeats {
+                clip_id: clip.clone(),
+                beats: vec![1.5, 0.5, f64::NAN, -1.0, 1.0, 0.5, f64::INFINITY],
+            })
+            .expect("sets");
+        assert!(set.applied);
+        assert_eq!(beats(&editor), vec![0.5, 1.0, 1.5]);
+        let again = editor
+            .apply(Command::SetClipBeats {
+                clip_id: clip.clone(),
+                beats: vec![0.5, 1.0, 1.5],
+            })
+            .expect("no-op");
+        assert!(!again.applied);
+
+        assert!(editor.undo());
+        assert!(beats(&editor).is_empty(), "one undo step");
+        assert!(editor.redo());
+        assert_eq!(beats(&editor), vec![0.5, 1.0, 1.5]);
+
+        let unknown = editor
+            .apply(Command::SetClipBeats {
+                clip_id: "nope".into(),
+                beats: vec![1.0],
+            })
+            .expect("no-op");
+        assert!(!unknown.applied);
+    }
+
+    /// Beats are left out of a saved clip that has none, a clip saved
+    /// before beats existed reads as having none, and beats survive a
+    /// round trip.
+    #[test]
+    fn clip_beats_serialize_only_when_present() {
+        use crate::model::Clip;
+        let plain = Clip::default();
+        let json = serde_json::to_value(&plain).expect("writes");
+        assert!(json.get("beats").is_none());
+
+        let mut old = json.clone();
+        old.as_object_mut().expect("an object").remove("beats");
+        let read: Clip = serde_json::from_value(old).expect("reads an old clip");
+        assert!(read.beats.is_empty());
+
+        let mut with = plain.clone();
+        with.beats = vec![0.25, 0.75];
+        let json = serde_json::to_value(&with).expect("writes");
+        assert_eq!(json["beats"], json!([0.25, 0.75]));
+        let back: Clip = serde_json::from_value(json).expect("reads");
+        assert_eq!(back.beats, vec![0.25, 0.75]);
+    }
+
     // ── Delete Left / Delete Right (Q / W) ──
     // https://github.com/jub0t/Concat/issues/400
 

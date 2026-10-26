@@ -151,6 +151,24 @@ pub(super) fn apply(
             })
         }
 
+        Command::SetClipBeats { clip_id, beats } => {
+            let timeline = project.active_mut();
+            let Some(clip) = timeline.clip_mut(&clip_id) else {
+                return Ok(Outcome::default());
+            };
+            let mut beats: Vec<f64> = beats
+                .into_iter()
+                .filter(|beat| beat.is_finite() && *beat >= 0.0)
+                .collect();
+            beats.sort_by(f64::total_cmp);
+            beats.dedup();
+            let applied = assign(&mut clip.beats, beats);
+            Ok(Outcome {
+                created_id: None,
+                applied,
+            })
+        }
+
         Command::AddCutoutStroke { clip_id, stroke } => {
             let timeline = project.active_mut();
             let Some(clip) = timeline.clip_mut(&clip_id) else {
