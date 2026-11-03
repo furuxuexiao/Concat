@@ -2359,3 +2359,1723 @@ fn a_background_is_wiped_with_its_picture() {
         "the edge is the picture's"
     );
 }
+
+/// Light from the display encoding a look is written in (BT.1886's 2.4).
+fn lit(display: [f32; 3]) -> [f32; 4] {
+    [
+        display[0].powf(2.4),
+        display[1].powf(2.4),
+        display[2].powf(2.4),
+        1.0,
+    ]
+}
+
+/// The display encoding of `rgb`, the space the colour packages work in.
+fn shown(rgb: [f32; 4]) -> [f32; 3] {
+    [
+        rgb[0].max(0.0).powf(1.0 / 2.4),
+        rgb[1].max(0.0).powf(1.0 / 2.4),
+        rgb[2].max(0.0).powf(1.0 / 2.4),
+    ]
+}
+
+/// The fully saturated colour at `hue` degrees, at HSV saturation `s` and
+/// value `v`, in the display encoding.
+fn hsv(hue: f32, s: f32, v: f32) -> [f32; 3] {
+    let h = (hue.rem_euclid(360.0)) / 60.0;
+    let x = 1.0 - (h % 2.0 - 1.0).abs();
+    let (r, g, b) = match h as u32 {
+        0 => (1.0, x, 0.0),
+        1 => (x, 1.0, 0.0),
+        2 => (0.0, 1.0, x),
+        3 => (0.0, x, 1.0),
+        4 => (x, 0.0, 1.0),
+        _ => (1.0, 0.0, x),
+    };
+    [r, g, b].map(|c| v * (1.0 - s + s * c))
+}
+
+/// Hue in degrees and chroma of a colour in the display encoding.
+fn hue_and_chroma(rgb: [f32; 3]) -> (f32, f32) {
+    let mx = rgb[0].max(rgb[1]).max(rgb[2]);
+    let mn = rgb[0].min(rgb[1]).min(rgb[2]);
+    let d = mx - mn;
+    if d < 1e-6 {
+        return (0.0, 0.0);
+    }
+    let h = if mx == rgb[0] {
+        (rgb[1] - rgb[2]) / d
+    } else if mx == rgb[1] {
+        2.0 + (rgb[2] - rgb[0]) / d
+    } else {
+        4.0 + (rgb[0] - rgb[1]) / d
+    };
+    ((h / 6.0).rem_euclid(1.0) * 360.0, d)
+}
+
+fn moved(a: [f32; 4], b: [f32; 4]) -> f32 {
+    (0..3).map(|c| (a[c] - b[c]).abs()).fold(0.0, f32::max)
+}
+
+const BANDS: [(&str, f32); 8] = [
+    ("red", 0.0),
+    ("orange", 30.0),
+    ("yellow", 60.0),
+    ("green", 120.0),
+    ("cyan", 180.0),
+    ("blue", 240.0),
+    ("purple", 270.0),
+    ("magenta", 300.0),
+];
+
+/// Every band's saturation slider at -100, across the whole wheel: the
+/// band's own centre turns grey, its neighbours' centres are untouched,
+/// and the move fades from one to the other without a step.
+#[test]
+fn every_hsl_band_owns_its_centre_and_hands_over_smoothly() {
+    let Some(mut gpu) = heavy_gpu() else { return };
+    let hsl = concat_effects::Catalogue::builtin()
+        .get("concat.hsl")
+        .expect("a built-in");
+    let size = (720, 1);
+    let at = |hue: f32| ((hue.rem_euclid(360.0)) * 2.0).round() as usize;
+    let picture: Vec<[f32; 4]> = (0..size.0)
+        .map(|x| lit(hsv(x as f32 / 2.0, 0.8, 0.8)))
+        .collect();
+    for (n, (band, centre)) in BANDS.iter().enumerate() {
+        let pass = hsl
+            .pass(&BTreeMap::from([(format!("{band}_sat"), -100.0)]), None)
+            .expect("a shader");
+        let got = treated(&mut gpu, size, &picture, &[pass]);
+        let (_, left) = hue_and_chroma(shown(got[at(*centre)]));
+        assert!(left < 0.01, "{band} at its centre kept chroma {left}");
+        for neighbour in [BANDS[(n + 7) % 8].1, BANDS[(n + 1) % 8].1] {
+            let i = at(neighbour);
+            assert!(
+                moved(got[i], picture[i]) < 1e-3,
+                "{band} moved its neighbour at {neighbour}"
+            );
+        }
+        // No step between two hues half a degree apart.
+        let amounts: Vec<f32> = got
+            .iter()
+            .zip(&picture)
+            .map(|(a, b)| moved(*a, *b))
+            .collect();
+        for x in 0..amounts.len() {
+            let step = (amounts[x] - amounts[(x + 1) % amounts.len()]).abs();
+            assert!(
+                step < 0.02,
+                "{band}: a seam of {step} at {}",
+                x as f32 / 2.0
+            );
+        }
+    }
+}
+
+/// A band's hue slider turns it towards the next band round the wheel at
+/// plus, and back at minus: 30 degrees where its neighbours are 60 away,
+/// 24 where one is only 30 away, so the wheel is never folded.
+#[test]
+fn hsl_hue_turns_towards_the_next_band() {
+    let Some(mut gpu) = heavy_gpu() else { return };
+    let hsl = concat_effects::Catalogue::builtin()
+        .get("concat.hsl")
+        .expect("a built-in");
+    for (band, centre, reach) in [
+        ("red", 0.0f32, 24.0f32),
+        ("green", 120.0, 30.0),
+        ("blue", 240.0, 24.0),
+    ] {
+        let picture = vec![lit(hsv(centre, 0.8, 0.8))];
+        for slider in [100.0, -100.0] {
+            let pass = hsl
+                .pass(&BTreeMap::from([(format!("{band}_hue"), slider)]), None)
+                .expect("a shader");
+            let got = treated(&mut gpu, (1, 1), &picture, &[pass]);
+            let (hue, _) = hue_and_chroma(shown(got[0]));
+            let turned = (hue - centre + 540.0).rem_euclid(360.0) - 180.0;
+            let want = reach * (slider as f32 / 100.0);
+            assert!(
+                (turned - want).abs() < 2.0,
+                "{band} at {slider}: turned {turned} degrees, not {want}"
+            );
+        }
+    }
+}
+
+/// Every band's hue slider at either end, across the whole wheel: the
+/// output hue only ever moves forward as the input hue does, so a gradient
+/// through a turned band stretches or squeezes but never folds back - two
+/// neighbours at opposite ends included.
+#[test]
+fn hsl_hue_never_folds_the_wheel() {
+    let Some(mut gpu) = heavy_gpu() else { return };
+    let hsl = concat_effects::Catalogue::builtin()
+        .get("concat.hsl")
+        .expect("a built-in");
+    let size = (720, 1);
+    let picture: Vec<[f32; 4]> = (0..size.0)
+        .map(|x| lit(hsv(x as f32 / 2.0, 0.8, 0.8)))
+        .collect();
+    let mut settings: Vec<BTreeMap<String, f64>> = Vec::new();
+    for (band, _) in BANDS {
+        for end in [-100.0, 100.0] {
+            settings.push(BTreeMap::from([(format!("{band}_hue"), end)]));
+        }
+    }
+    for n in 0..8 {
+        // A chain of three at its worst - hard one way, a little, hard the
+        // other way - where a pair comes back to about 0.87 of its gap, and
+        // the mirror of it.
+        for sign in [1.0, -1.0] {
+            settings.push(BTreeMap::from([
+                (format!("{}_hue", BANDS[n].0), 100.0 * sign),
+                (format!("{}_hue", BANDS[(n + 1) % 8].0), 20.0 * sign),
+                (format!("{}_hue", BANDS[(n + 2) % 8].0), -100.0 * sign),
+            ]));
+        }
+        settings.push(BTreeMap::from([
+            (format!("{}_hue", BANDS[n].0), 100.0),
+            (format!("{}_hue", BANDS[(n + 1) % 8].0), -100.0),
+        ]));
+        settings.push(BTreeMap::from([
+            (format!("{}_hue", BANDS[n].0), -100.0),
+            (format!("{}_hue", BANDS[(n + 1) % 8].0), 100.0),
+        ]));
+    }
+    for values in settings {
+        let pass = hsl.pass(&values, None).expect("a shader");
+        let got = treated(&mut gpu, size, &picture, &[pass]);
+        let hues: Vec<f32> = got.iter().map(|px| hue_and_chroma(shown(*px)).0).collect();
+        for x in 0..hues.len() {
+            let next = hues[(x + 1) % hues.len()];
+            let step = (next - hues[x] + 540.0).rem_euclid(360.0) - 180.0;
+            assert!(
+                step > 0.0,
+                "{values:?}: hue folds back by {step} at {}",
+                x as f32 / 2.0
+            );
+        }
+    }
+}
+
+/// Every band at saturation -100 together turns the whole wheel grey,
+/// whatever the hue: the bands' weights sum to one everywhere.
+#[test]
+fn hsl_bands_together_cover_the_whole_wheel() {
+    let Some(mut gpu) = heavy_gpu() else { return };
+    let hsl = concat_effects::Catalogue::builtin()
+        .get("concat.hsl")
+        .expect("a built-in");
+    let size = (720, 1);
+    let picture: Vec<[f32; 4]> = (0..size.0)
+        .map(|x| lit(hsv(x as f32 / 2.0, 0.8, 0.8)))
+        .collect();
+    let values: BTreeMap<String, f64> = BANDS
+        .iter()
+        .map(|(band, _)| (format!("{band}_sat"), -100.0))
+        .collect();
+    let pass = hsl.pass(&values, None).expect("a shader");
+    let got = treated(&mut gpu, size, &picture, &[pass]);
+    for (x, px) in got.iter().enumerate() {
+        let (_, chroma) = hue_and_chroma(shown(*px));
+        assert!(chroma < 0.01, "hue {} kept chroma {chroma}", x as f32 / 2.0);
+    }
+}
+
+/// Every band's luminance at either end lifts or lowers every colour by
+/// a real share of the room it has - a sky and a yellow already near
+/// white included - and moves smoothly round the wheel.
+#[test]
+fn hsl_luminance_moves_every_colour_both_ways() {
+    let Some(mut gpu) = heavy_gpu() else { return };
+    let hsl = concat_effects::Catalogue::builtin()
+        .get("concat.hsl")
+        .expect("a built-in");
+    let colours = [
+        ("sky", [0.45, 0.7, 0.95]),
+        ("deep blue", [0.1, 0.2, 0.8]),
+        ("yellow", [0.95, 0.9, 0.2]),
+        ("pale skin", [0.9, 0.7, 0.6]),
+        ("leaf", [0.3, 0.6, 0.2]),
+        ("pure red at white", [1.0, 0.1, 0.1]),
+    ];
+    let picture: Vec<[f32; 4]> = colours.iter().map(|(_, c)| lit(*c)).collect();
+    let all = |end: f64| -> BTreeMap<String, f64> {
+        BANDS
+            .iter()
+            .map(|(band, _)| (format!("{band}_lum"), end))
+            .collect()
+    };
+    let bright = |px: [f32; 4]| {
+        let d = shown(px);
+        0.2126 * d[0] + 0.7152 * d[1] + 0.0722 * d[2]
+    };
+    for end in [100.0, -100.0] {
+        let pass = hsl.pass(&all(end), None).expect("a shader");
+        let got = treated(&mut gpu, (colours.len() as u32, 1), &picture, &[pass]);
+        for (i, (name, _)) in colours.iter().enumerate() {
+            let (before, after) = (bright(picture[i]), bright(got[i]));
+            eprintln!("{name} at {end}: {before:.3} -> {after:.3}");
+            if end > 0.0 {
+                assert!(
+                    after - before > 0.3 * (1.0 - before),
+                    "{name} barely lifted: {before} -> {after}"
+                );
+            } else {
+                assert!(
+                    before - after > 0.3 * before,
+                    "{name} barely lowered: {before} -> {after}"
+                );
+            }
+        }
+    }
+    let size = (720, 1);
+    let wheel: Vec<[f32; 4]> = (0..size.0)
+        .map(|x| lit(hsv(x as f32 / 2.0, 0.8, 0.8)))
+        .collect();
+    let pass = hsl.pass(&all(100.0), None).expect("a shader");
+    let got = treated(&mut gpu, size, &wheel, &[pass]);
+    for x in 0..got.len() {
+        let step = moved(got[x], got[(x + 1) % got.len()]);
+        assert!(step < 0.03, "a step of {step} at {}", x as f32 / 2.0);
+    }
+}
+
+/// Luminance at its most across a run of oranges whose brightest channel
+/// is already past white and whose brightness crosses white: no channel
+/// is lowered and neighbours never jump apart.
+#[test]
+fn hsl_luminance_is_smooth_past_white() {
+    let Some(mut gpu) = heavy_gpu() else { return };
+    let hsl = concat_effects::Catalogue::builtin()
+        .get("concat.hsl")
+        .expect("a built-in");
+    let size = (200, 1);
+    let ramp: Vec<[f32; 4]> = (0..size.0)
+        .map(|x| {
+            let r = 1.5 + 0.6 * x as f32 / size.0 as f32;
+            lit([r, r * 0.455, r * 0.214])
+        })
+        .collect();
+    let values: BTreeMap<String, f64> = BANDS
+        .iter()
+        .map(|(band, _)| (format!("{band}_lum"), 100.0))
+        .collect();
+    let pass = hsl.pass(&values, None).expect("a shader");
+    let got = treated(&mut gpu, size, &ramp, &[pass]);
+    for x in 0..got.len() {
+        let (before, after) = (shown(ramp[x]), shown(got[x]));
+        for c in 0..3 {
+            assert!(
+                after[c] >= before[c] - 1e-3,
+                "channel {c} lowered at {x}: {before:?} -> {after:?}"
+            );
+        }
+        if x + 1 < got.len() {
+            let step = moved(got[x], got[x + 1]);
+            assert!(step < 0.05, "a jump of {step} at {x}");
+        }
+    }
+}
+
+/// Greys stay grey, and nothing comes out negative or not a number, with
+/// every slider at either end: grey, near-grey, black, white past 1.0, a
+/// bright colour past 1.0, and a half-transparent pixel.
+#[test]
+fn hsl_at_its_ends_keeps_greys_and_stays_finite() {
+    let Some(mut gpu) = heavy_gpu() else { return };
+    let hsl = concat_effects::Catalogue::builtin()
+        .get("concat.hsl")
+        .expect("a built-in");
+    let picture = vec![
+        [0.2, 0.2, 0.2, 1.0],
+        [0.2, 0.2, 0.205, 1.0],
+        [0.0, 0.0, 0.0, 1.0],
+        [3.0, 3.0, 3.0, 1.0],
+        [4.0, 0.6, 0.1, 1.0],
+        [0.3, 0.2, 0.1, 0.5],
+    ];
+    for end in [-100.0, 100.0] {
+        let values: BTreeMap<String, f64> = BANDS
+            .iter()
+            .flat_map(|(band, _)| ["hue", "sat", "lum"].map(|p| (format!("{band}_{p}"), end)))
+            .collect();
+        let pass = hsl.pass(&values, None).expect("a shader");
+        let got = treated(&mut gpu, (6, 1), &picture, &[pass]);
+        for (i, px) in got.iter().enumerate() {
+            assert!(
+                px.iter().all(|c| c.is_finite() && *c >= 0.0),
+                "pixel {i} at {end}: {px:?}"
+            );
+        }
+        for i in [0, 1, 2, 3] {
+            assert!(
+                moved(got[i], picture[i]) < 2e-3 * picture[i][0].max(1.0),
+                "grey {i} moved at {end}"
+            );
+        }
+        assert!((got[5][3] - 0.5).abs() < 1e-3, "alpha changed at {end}");
+    }
+}
+
+/// A face's worth of test cases side by side, in light, drawn `k` times over: a
+/// beige wall within a few percent of the skin's brightness with writing on it;
+/// skin with pores, a small dark spot, a red spot of acne, a larger brown spot,
+/// lips, a ruddy cheek with lips inside it, a one and a two pixel dark line,
+/// light and dark brown hair strands one and two pixels wide, a brow, a grey-
+/// white eye and a warm-white hazel one; the jaw against a dark background,
+/// rosy lips on their own, black hair with strands, and a grainy sky that fills
+/// the rest of the frame.
+fn portrait(size: (u32, u32), k: u32) -> Vec<[f32; 4]> {
+    (0..size.1)
+        .flat_map(|y| (0..size.0).map(move |x| (x, y)))
+        .map(|(x, y)| {
+            let (x, y) = (x / k, y / k);
+            let pore = if (x * 7 + y * 13) % 5 < 2 {
+                0.03
+            } else {
+                -0.02
+            };
+            let strand = if x % 2 == 0 { 0.004 } else { 0.0 };
+            let within = |xs: std::ops::Range<u32>, ys: std::ops::Range<u32>| {
+                xs.contains(&x) && ys.contains(&y)
+            };
+            let sky = [0.05 + pore * 0.5, 0.1 + pore, 0.4 + pore, 1.0];
+            if y >= 112 {
+                return sky;
+            }
+            match x {
+                _ if within(3..5, 40..60) => lit([0.05, 0.05, 0.05]),
+                _ if within(18..21, 40..43) => [0.33, 0.13, 0.05, 1.0],
+                _ if within(30..33, 40..43) => lit([0.62, 0.32, 0.27]),
+                _ if within(18..27, 48..57) => lit([0.55, 0.40, 0.31]),
+                _ if within(33..45, 46..60) => lit([0.75, 0.43, 0.38]),
+                _ if within(11..21, 86..96) => lit([0.75, 0.43, 0.38]),
+                _ if within(28..48, 84..85) => lit([0.55, 0.38, 0.28]),
+                _ if within(28..48, 88..89) || within(28..48, 92..94) => lit([0.45, 0.28, 0.20]),
+                _ if within(30..44, 98..104) => lit([0.38, 0.26, 0.19]),
+                _ if within(36..38, 107..109) => lit([0.08, 0.07, 0.06]),
+                _ if within(34..40, 106..110) => lit([0.45, 0.35, 0.2]),
+                _ if within(30..44, 105..111) => lit([0.90, 0.85, 0.80]),
+                _ if within(8..24, 62..112) => {
+                    let [r, g, b, a] = lit([0.80, 0.52, 0.47]);
+                    [r + pore, g + pore, b + pore, a]
+                }
+                _ if within(28..48, 62..63) || within(28..48, 66..68) => lit([0.08, 0.07, 0.07]),
+                _ if within(35..39, 73..77) => lit([0.2, 0.15, 0.12]),
+                _ if within(30..44, 72..78) => lit([0.92, 0.92, 0.9]),
+                0..8 => lit([0.70, 0.60, 0.50]),
+                8..48 => [0.45 + pore, 0.25 + pore, 0.15 + pore, 1.0],
+                48..56 => [0.02, 0.02, 0.02, 1.0],
+                56..64 => lit([0.75, 0.42, 0.38]),
+                64..72 => [0.004 + strand, 0.003 + strand, 0.002 + strand, 1.0],
+                _ => sky,
+            }
+        })
+        .collect()
+}
+
+/// The spread of luminance over a block of the portrait, in its own
+/// pixels, drawn `k` times over.
+fn spread(
+    picture: &[[f32; 4]],
+    width: u32,
+    k: u32,
+    xs: std::ops::Range<u32>,
+    ys: std::ops::Range<u32>,
+) -> f32 {
+    let lumas: Vec<f32> = (ys.start * k..ys.end * k)
+        .flat_map(|y| (xs.start * k..xs.end * k).map(move |x| (x, y)))
+        .map(|(x, y)| {
+            let [r, g, b, _] = picture[(y * width + x) as usize];
+            0.2126 * r + 0.7152 * g + 0.0722 * b
+        })
+        .collect();
+    let mean = lumas.iter().sum::<f32>() / lumas.len() as f32;
+    (lumas.iter().map(|l| (l - mean).powi(2)).sum::<f32>() / lumas.len() as f32).sqrt()
+}
+
+/// Beauty at `smoothing` and `whiten` over the portrait drawn `k` times
+/// over, in a frame 1080 lines tall at `k` 1: the source and the result.
+fn beauty(
+    gpu: &mut WgpuCompositor,
+    k: u32,
+    smoothing: f64,
+    whiten: f64,
+) -> (Vec<[f32; 4]>, Vec<[f32; 4]>) {
+    beauty_in(gpu, k, 1080 * k, smoothing, whiten)
+}
+
+/// Beauty as `beauty`, in a frame `height` lines tall.
+fn beauty_in(
+    gpu: &mut WgpuCompositor,
+    k: u32,
+    height: u32,
+    smoothing: f64,
+    whiten: f64,
+) -> (Vec<[f32; 4]>, Vec<[f32; 4]>) {
+    let package = concat_effects::Catalogue::builtin()
+        .get("concat.beauty")
+        .expect("a built-in");
+    let size = (96 * k, height);
+    let picture = portrait(size, k);
+    let pass = package
+        .pass(
+            &BTreeMap::from([
+                ("smoothing".to_owned(), smoothing),
+                ("whiten".to_owned(), whiten),
+            ]),
+            None,
+        )
+        .expect("a shader");
+    let got = treated(gpu, size, &picture, &[pass]);
+    (picture, got)
+}
+
+/// The portrait's pixel `(x, y)`, drawn `k` times over: the middle of its
+/// block.
+fn at_k(frame: &[[f32; 4]], k: u32, (x, y): (u32, u32)) -> [f32; 4] {
+    frame[((y * k + k / 2) * 96 * k + x * k + k / 2) as usize]
+}
+
+/// How far `spot` stands apart from the two points `around` it, as the
+/// largest channel difference in the display encoding.
+fn standing(frame: &[[f32; 4]], k: u32, spot: (u32, u32), around: [(u32, u32); 2]) -> f32 {
+    let (a, b) = (
+        shown(at_k(frame, k, around[0])),
+        shown(at_k(frame, k, around[1])),
+    );
+    let s = shown(at_k(frame, k, spot));
+    (0..3)
+        .map(|c| ((a[c] + b[c]) / 2.0 - s[c]).abs())
+        .fold(0.0, f32::max)
+}
+
+/// Beauty's smoothing at its most, on a 1080-line frame and on the same
+/// portrait drawn twice as large in a 2160-line one, alike: pores even out
+/// across open skin, by the jaw, by the wall and on a ruddy cheek; a dark spot,
+/// a red spot of acne and a nine pixel brown spot go; and the jaw keeps its
+/// edge, neither dragged dark nor bleeding, while lips inside the skin, rosy
+/// lips on their own, black hair, the sky and the wall stay as they were, and
+/// lips inside the ruddy cheek take no more than a trace.
+#[test]
+fn beauty_smooths_skin_and_nothing_else() {
+    let Some(mut gpu) = heavy_gpu() else { return };
+    let lu = |p: [f32; 4]| 0.2126 * p[0] + 0.7152 * p[1] + 0.0722 * p[2];
+    for k in [1, 2] {
+        let (picture, got) = beauty(&mut gpu, k, 100.0, 0.0);
+        let width = 96 * k;
+        for (name, xs, ys) in [
+            ("open skin", 26..40, 8..32),
+            ("skin by the jaw", 42..48, 8..32),
+            ("skin by the wall", 8..14, 8..32),
+            ("a ruddy cheek", 10..22, 64..78),
+        ] {
+            let before = spread(&picture, width, k, xs.clone(), ys.clone());
+            let after = spread(&got, width, k, xs, ys);
+            eprintln!("x{k} {name}: grain {before:.5} -> {after:.5}");
+            assert!(
+                after < before * 0.6,
+                "x{k}: {name} kept its pores: {before} -> {after}"
+            );
+        }
+        for (name, spot, around) in [
+            ("dark spot", (19, 41), [(13, 41), (25, 41)]),
+            ("acne", (31, 41), [(26, 41), (37, 41)]),
+            ("brown spot", (22, 52), [(14, 52), (30, 52)]),
+        ] {
+            let before = standing(&picture, k, spot, around);
+            let after = standing(&got, k, spot, around);
+            eprintln!("x{k} {name}: stands out {before:.4} -> {after:.4}");
+            assert!(
+                after < before * 0.5,
+                "x{k}: {name} stayed: {before} -> {after}"
+            );
+        }
+        // The jaw: its last column of skin ends up as bright as the skin
+        // beside it once that is evened - not dragged towards the dark -
+        // and the dark keeps clear of the skin.
+        let evened = (26..40)
+            .flat_map(|x| (8..32).map(move |y| (x, y)))
+            .map(|p| lu(at_k(&got, k, p)))
+            .sum::<f32>()
+            / (14.0 * 24.0);
+        for y in 8..44 {
+            let edge = lu(at_k(&got, k, (47, y)));
+            assert!(
+                (edge - evened).abs() < 0.02,
+                "x{k}: the jaw at row {y} is {edge}, the skin {evened}"
+            );
+            let dark = moved(at_k(&got, k, (48, y)), at_k(&picture, k, (48, y)));
+            assert!(
+                dark < 0.005,
+                "x{k}: the dark beside the jaw at row {y} took {dark}"
+            );
+        }
+        for y in 8..80 {
+            for x in (64..72).chain(74..90) {
+                let drift = moved(at_k(&got, k, (x, y)), at_k(&picture, k, (x, y)));
+                assert!(drift < 0.01, "x{k}: {x},{y} is not skin and moved {drift}");
+            }
+            // Lips share hues with a ruddy cheek, so the blur may gather
+            // them - but only from lips like themselves.
+            for x in 58..62 {
+                let drift = moved(at_k(&got, k, (x, y)), at_k(&picture, k, (x, y)));
+                assert!(drift < 0.02, "x{k}: the lips at {x},{y} moved {drift}");
+            }
+            // A wall the very tint of skin counts as skin to a colour
+            // mask; the blur's tint weight holds what it takes from the
+            // face beside it to a trace.
+            for x in (0..3).chain(5..8) {
+                let drift = moved(at_k(&got, k, (x, y)), at_k(&picture, k, (x, y)));
+                assert!(
+                    drift < 0.02,
+                    "x{k}: the wall at {x},{y} took {drift} from the face"
+                );
+            }
+        }
+        for (x, y) in [(36, 50), (39, 52), (43, 54), (33, 52), (39, 46), (39, 59)] {
+            let drift = moved(at_k(&got, k, (x, y)), at_k(&picture, k, (x, y)));
+            assert!(drift < 0.02, "x{k}: the lips at {x},{y} moved {drift}");
+        }
+        // Lips inside a ruddy cheek are a degree of hue from it, told apart
+        // only by tint and brightness: at the most they may take a trace.
+        for (x, y) in [(16, 91), (11, 91), (20, 91), (16, 86), (16, 95)] {
+            let drift = moved(at_k(&got, k, (x, y)), at_k(&picture, k, (x, y)));
+            assert!(
+                drift < 0.025,
+                "x{k}: the lips in the cheek at {x},{y} moved {drift}"
+            );
+        }
+    }
+}
+
+/// What smoothing must leave sharp at 30, 50 (the default), 75 and 100, in
+/// a 1080-line frame, a 540-line one and a 2160-line one with the portrait
+/// drawn twice as large: one and two pixel dark lines, writing on a beige
+/// wall, light and dark brown hair strands, a brow, and two eyes - their
+/// pupils and irises against their whites, every pixel of the hazel iris
+/// and its white barely moved; and up to the default, lips inside a ruddy
+/// cheek - a degree of hue from it - moved by no more than a trace. Near-
+/// black and grey features keep 85% of their contrast throughout; warm
+/// brown ones 85% up to the default and 70% past it.
+#[test]
+fn beauty_keeps_lines_hair_brows_and_eyes() {
+    let Some(mut gpu) = heavy_gpu() else { return };
+    let lu = |p: [f32; 4]| 0.2126 * p[0] + 0.7152 * p[1] + 0.0722 * p[2];
+    for (k, height) in [(1, 1080), (1, 540), (2, 2160)] {
+        for smoothing in [30.0, 50.0, 75.0, 100.0] {
+            let (picture, got) = beauty_in(&mut gpu, k, height, smoothing, 0.0);
+            let at = |frame: &[[f32; 4]], p: (u32, u32)| at_k(frame, k, p);
+            let contrast = |frame: &[[f32; 4]], line: (u32, u32), around: [(u32, u32); 2]| {
+                (lu(at(frame, around[0])) + lu(at(frame, around[1]))) / 2.0 - lu(at(frame, line))
+            };
+            let warm = if smoothing > 50.0 { 0.7 } else { 0.85 };
+            let tag = format!("{height} lines, {smoothing}");
+            for (name, line, around, least) in [
+                ("a one pixel line", (38, 62), [(38, 60), (38, 64)], 0.85),
+                ("a two pixel line", (38, 66), [(38, 64), (38, 70)], 0.85),
+                ("writing on the wall", (3, 50), [(1, 50), (6, 50)], 0.85),
+                ("the grey eye's pupil", (37, 75), [(32, 75), (42, 75)], 0.85),
+                ("a light brown strand", (38, 84), [(38, 82), (38, 86)], warm),
+                ("a brown strand", (38, 88), [(38, 86), (38, 90)], warm),
+                (
+                    "a two pixel brown strand",
+                    (38, 92),
+                    [(38, 90), (38, 95)],
+                    warm,
+                ),
+                ("a brow", (37, 101), [(37, 96), (46, 101)], warm),
+                ("the hazel iris", (35, 108), [(31, 108), (42, 108)], 0.85),
+                ("the pupil", (37, 108), [(31, 108), (42, 108)], 0.85),
+            ] {
+                let before = contrast(&picture, line, around);
+                let after = contrast(&got, line, around);
+                eprintln!("{tag}: {name} {before:.4} -> {after:.4}");
+                assert!(
+                    after > before * least,
+                    "{tag}: {name} faded: {before} -> {after}"
+                );
+            }
+            // Every pixel of the hazel eye but its pupil, white included.
+            let limit = if smoothing > 50.0 { 0.04 } else { 0.02 };
+            let mut worst = (0.0f32, (0, 0));
+            for y in 105..111 {
+                for x in 30..44 {
+                    if (36..38).contains(&x) && (107..109).contains(&y) {
+                        continue;
+                    }
+                    let drift = moved(at(&got, (x, y)), at(&picture, (x, y)));
+                    if drift > worst.0 {
+                        worst = (drift, (x, y));
+                    }
+                }
+            }
+            eprintln!(
+                "{tag}: the hazel eye moved {:.4} at {:?} {:?} -> {:?}",
+                worst.0,
+                worst.1,
+                shown(at(&picture, worst.1)),
+                shown(at(&got, worst.1))
+            );
+            assert!(
+                worst.0 < limit,
+                "{tag}: the hazel eye moved {} at {:?}",
+                worst.0,
+                worst.1
+            );
+            if smoothing <= 50.0 {
+                for lips in [(16, 91), (11, 91), (20, 91), (16, 86), (16, 95)] {
+                    let drift = moved(at(&got, lips), at(&picture, lips));
+                    assert!(
+                        drift < 0.025,
+                        "{tag}: the lips in the cheek at {lips:?} moved {drift}"
+                    );
+                }
+            }
+            let drift = moved(at(&got, (32, 75)), at(&picture, (32, 75)));
+            assert!(drift < 0.03, "{tag}: the grey eye's white moved {drift}");
+        }
+    }
+}
+
+/// Whiten keeps a highlight past white: skin brighter than white stays
+/// past it, its excess kept rather than pulled back.
+#[test]
+fn beauty_whiten_keeps_highlights_past_white() {
+    let Some(mut gpu) = heavy_gpu() else { return };
+    let beauty = concat_effects::Catalogue::builtin()
+        .get("concat.beauty")
+        .expect("a built-in");
+    let picture = vec![lit([1.4, 1.1, 0.95]), lit([1.2, 0.95, 0.8])];
+    let pass = beauty
+        .pass(
+            &BTreeMap::from([("smoothing".to_owned(), 0.0), ("whiten".to_owned(), 100.0)]),
+            None,
+        )
+        .expect("a shader");
+    let got = treated(&mut gpu, (2, 1), &picture, &[pass]);
+    for (i, px) in got.iter().enumerate() {
+        let (before, after) = (shown(picture[i]), shown(*px));
+        eprintln!("{before:?} -> {after:?}");
+        assert!(
+            after[0] > 1.0,
+            "highlight {i} pulled under white: {after:?}"
+        );
+        assert!(
+            before[0] - after[0] < 0.02,
+            "highlight {i} lowered: {before:?} -> {after:?}"
+        );
+    }
+}
+
+/// The blur's reach follows the frame's height: the portrait drawn once
+/// in a 540-line frame is smoothed as the same portrait drawn twice as
+/// large in a 1080-line one.
+#[test]
+fn beauty_reach_follows_the_frame() {
+    let Some(mut gpu) = heavy_gpu() else { return };
+    let (small_before, small) = beauty_in(&mut gpu, 1, 540, 100.0, 0.0);
+    let (large_before, large) = beauty_in(&mut gpu, 2, 1080, 100.0, 0.0);
+    for (xs, ys) in [(26..40, 8..32), (10..22, 64..78)] {
+        let a = spread(&small, 96, 1, xs.clone(), ys.clone())
+            / spread(&small_before, 96, 1, xs.clone(), ys.clone());
+        let b =
+            spread(&large, 192, 2, xs.clone(), ys.clone()) / spread(&large_before, 192, 2, xs, ys);
+        eprintln!("grain left: {a:.3} at 540 lines, {b:.3} at 1080");
+        assert!(
+            (a - b).abs() < 0.08,
+            "540 lines left {a} of the grain, 1080 lines {b}"
+        );
+    }
+    let a = standing(&small, 1, (22, 52), [(14, 52), (30, 52)])
+        / standing(&small_before, 1, (22, 52), [(14, 52), (30, 52)]);
+    let b = standing(&large, 2, (22, 52), [(14, 52), (30, 52)])
+        / standing(&large_before, 2, (22, 52), [(14, 52), (30, 52)]);
+    eprintln!("brown spot left: {a:.3} at 540 lines, {b:.3} at 1080");
+    assert!(
+        (a - b).abs() < 0.1,
+        "540 lines left {a} of the spot, 1080 lines {b}"
+    );
+}
+
+/// Whiten lifts skin and leaves lips, hair and the sky; with both sliders
+/// at nothing the picture is as shot.
+#[test]
+fn beauty_whitens_skin_alone_and_rests_at_nothing() {
+    let Some(mut gpu) = heavy_gpu() else { return };
+    let (picture, got) = beauty(&mut gpu, 1, 0.0, 100.0);
+    assert!(
+        at_k(&got, 1, (30, 20))[1] > at_k(&picture, 1, (30, 20))[1] * 1.05,
+        "skin was not lifted"
+    );
+    for spot in [(40, 52), (60, 20), (66, 20), (80, 20)] {
+        let drift = moved(at_k(&got, 1, spot), at_k(&picture, 1, spot));
+        assert!(drift < 0.01, "{spot:?} is not skin and moved {drift}");
+    }
+    let (picture, got) = beauty(&mut gpu, 1, 0.0, 0.0);
+    assert!(
+        got.iter().zip(&picture).all(|(a, b)| moved(*a, *b) < 1e-3),
+        "at nothing the picture moved"
+    );
+}
+
+/// A field of skin with pores, `size` pixels, drawn `k` times over, with
+/// `feature` painted where it says.
+fn skin_field(
+    size: (u32, u32),
+    k: u32,
+    feature: impl Fn(u32, u32) -> Option<[f32; 4]>,
+) -> Vec<[f32; 4]> {
+    (0..size.1)
+        .flat_map(|y| (0..size.0).map(move |x| (x, y)))
+        .map(|(x, y)| {
+            let (x, y) = (x / k, y / k);
+            let pore = if (x * 7 + y * 13) % 5 < 2 {
+                0.03
+            } else {
+                -0.02
+            };
+            feature(x, y).unwrap_or([0.45 + pore, 0.25 + pore, 0.15 + pore, 1.0])
+        })
+        .collect()
+}
+
+/// Beauty over `picture`, `size` pixels, smoothing only.
+fn beautified(
+    gpu: &mut WgpuCompositor,
+    size: (u32, u32),
+    picture: &[[f32; 4]],
+    smoothing: f64,
+) -> Vec<[f32; 4]> {
+    beautified_with(gpu, size, picture, smoothing, 0.0)
+}
+
+/// Beauty over `picture`, `size` pixels, at `smoothing` and `whiten`.
+fn beautified_with(
+    gpu: &mut WgpuCompositor,
+    size: (u32, u32),
+    picture: &[[f32; 4]],
+    smoothing: f64,
+    whiten: f64,
+) -> Vec<[f32; 4]> {
+    let package = concat_effects::Catalogue::builtin()
+        .get("concat.beauty")
+        .expect("a built-in");
+    let pass = package
+        .pass(
+            &BTreeMap::from([
+                ("smoothing".to_owned(), smoothing),
+                ("whiten".to_owned(), whiten),
+            ]),
+            None,
+        )
+        .expect("a shader");
+    treated(gpu, size, picture, &[pass])
+}
+
+/// Acne three, five and six pixels across, placed four ways against the
+/// pixel grid, loses at least 60% of how far it stands out at the default -
+/// every pixel of it, not just the middle - and at least 40% at 25, at 1080
+/// lines and drawn twice as large at 2160, with no halo round it; a lighter
+/// shine and a gold stud the same size keep at least 85% of theirs at the
+/// default and at the most. Red and pink spots, a degree or two from lips
+/// in hue, lose at least 45% at the default; and at 25 may be left as they
+/// were, never standing out a tenth further; and every spot stays gone with
+/// whiten at nothing, at its default and at its most - a filled spot is
+/// whitened like the skin.
+#[test]
+fn beauty_takes_spots_and_keeps_shine() {
+    let Some(mut gpu) = heavy_gpu() else { return };
+    let acne = [0.33, 0.13, 0.08, 1.0];
+    let shine = lit([0.86, 0.72, 0.62]);
+    let gold = lit([0.85, 0.68, 0.25]);
+    let red = [0.40, 0.10, 0.08, 1.0];
+    let pink = [0.45, 0.16, 0.14, 1.0];
+    let mut cases = Vec::new();
+    for radius in [1.5f32, 2.5, 3.0] {
+        cases.push(("acne", acne, radius, 50.0, 0.4));
+        cases.push(("acne", acne, radius, 25.0, 0.6));
+    }
+    // Red and pink spots are a degree or two from lips in hue, so the
+    // shape tests that keep lips weigh on them too: they lose at least 45%.
+    for colour in [red, pink] {
+        cases.push(("red spot", colour, 2.5, 50.0, 0.55));
+        cases.push(("red spot", colour, 2.5, 25.0, 1.1));
+    }
+    for smoothing in [50.0, 100.0] {
+        cases.push(("shine", shine, 1.5, smoothing, -0.85));
+        cases.push(("gold stud", gold, 1.5, smoothing, -0.85));
+    }
+    // Several placements of each spot against the pixel grid, since which
+    // pixels a disc covers changes its shape.
+    let placements = [(32.0f32, 32.0f32), (32.5, 32.0), (32.0, 32.6), (32.3, 31.7)];
+    for k in [1, 2] {
+        let size = (64 * k, 1080 * k);
+        for ((&(name, colour, radius, smoothing, bound), whiten), (cx, cy)) in cases
+            .iter()
+            // Whiten lifts skin more than a shine already near white, which
+            // is tone, not smoothing: what must be kept is checked without it.
+            .flat_map(|case| {
+                let levels: &[f64] = if case.4 > 0.0 {
+                    &[0.0, 30.0, 100.0]
+                } else {
+                    &[0.0]
+                };
+                levels.iter().map(move |&w| (case, w))
+            })
+            .flat_map(|pair| placements.map(|at| (pair, at)))
+        {
+            let inside = |x: u32, y: u32| {
+                let (dx, dy) = (x as f32 + 0.5 - cx, y as f32 + 0.5 - cy);
+                dx * dx + dy * dy <= radius * radius
+            };
+            let picture = skin_field(size, k, |x, y| inside(x, y).then_some(colour));
+            let got = beautified_with(&mut gpu, size, &picture, smoothing, whiten);
+            let at = |frame: &[[f32; 4]], (x, y): (u32, u32)| {
+                shown(frame[((y * k + k / 2) * 64 * k + x * k + k / 2) as usize])
+            };
+            // The skin round the spot, as each frame has it: a ring well
+            // clear of the spot, averaged.
+            let skin = |frame: &[[f32; 4]]| {
+                let ring: Vec<[f32; 3]> = (20..44)
+                    .flat_map(|x| (20..44).map(move |y| (x, y)))
+                    .filter(|&(x, y)| {
+                        let (dx, dy) = (x as f32 + 0.5 - 32.0, y as f32 + 0.5 - 32.0);
+                        let d = (dx * dx + dy * dy).sqrt();
+                        d > 8.0 && d < 12.0
+                    })
+                    .map(|p| at(frame, p))
+                    .collect();
+                let n = ring.len() as f32;
+                [0, 1, 2].map(|c| ring.iter().map(|p| p[c]).sum::<f32>() / n)
+            };
+            let apart =
+                |a: [f32; 3], b: [f32; 3]| (0..3).map(|c| (a[c] - b[c]).abs()).fold(0.0, f32::max);
+            let (skin_before, skin_after) = (skin(&picture), skin(&got));
+            let mut before = 0.0f32;
+            let mut after = 0.0f32;
+            let mut halo = 0.0f32;
+            for y in 24..40 {
+                for x in 24..40 {
+                    let (dx, dy) = (x as f32 + 0.5 - 32.0, y as f32 + 0.5 - 32.0);
+                    let d = (dx * dx + dy * dy).sqrt();
+                    if inside(x, y) {
+                        before = before.max(apart(at(&picture, (x, y)), skin_before));
+                        after = after.max(apart(at(&got, (x, y)), skin_after));
+                    } else if d > radius + 1.0 && d < radius + 3.0 {
+                        halo = halo.max(apart(at(&got, (x, y)), skin_after));
+                    }
+                }
+            }
+            let tag =
+                format!("x{k} {radius:.1} px {name} at ({cx}, {cy}), {smoothing}, whiten {whiten}");
+            eprintln!("{tag}: worst {before:.4} -> {after:.4}, halo {halo:.4}");
+            if bound > 0.0 {
+                assert!(after < before * bound, "{tag} stayed: {before} -> {after}");
+            } else {
+                assert!(
+                    after > before * -bound,
+                    "{tag} was flattened: {before} -> {after}"
+                );
+            }
+            assert!(halo < 0.04, "{tag} left a halo of {halo}");
+        }
+    }
+}
+
+/// Skin fading out at the edge of a layer: the frame comes out the same
+/// whether the transparent pixels beyond it hold junk or skin - nothing
+/// of what cannot be seen bleeds into what can - and every alpha comes out
+/// as it went in.
+#[test]
+fn beauty_keeps_a_fading_edge_clean() {
+    let Some(mut gpu) = heavy_gpu() else { return };
+    let size = (64, 1080);
+    let edge = |beyond: [f32; 4]| {
+        skin_field(size, 1, move |x, _| match x {
+            40..48 => Some([0.45, 0.25, 0.15, 1.0 - (x - 39) as f32 / 9.0]),
+            48.. => Some(beyond),
+            _ => None,
+        })
+    };
+    let junk = edge([0.0, 5.0, 0.0, 0.0]);
+    let clean = edge([0.45, 0.25, 0.15, 0.0]);
+    for smoothing in [50.0, 100.0] {
+        let a = beautified(&mut gpu, size, &junk, smoothing);
+        let b = beautified(&mut gpu, size, &clean, smoothing);
+        for y in 8..56 {
+            for x in 0..64 {
+                let i = (y * 64 + x) as usize;
+                assert!(
+                    (a[i][3] - junk[i][3]).abs() < 1e-3,
+                    "alpha changed at {x},{y}"
+                );
+                if junk[i][3] > 0.0 {
+                    let drift = moved(a[i], b[i]);
+                    assert!(
+                        drift < 1e-3,
+                        "{smoothing}: what lies beyond reached {x},{y}: {drift}"
+                    );
+                }
+            }
+        }
+    }
+}
+
+/// Smoothing at its default already takes at least half the texture out
+/// of open skin at 1080 lines. Drawn twice as large at 2160, every pore is
+/// a two-pixel block whose grain is coarser for the same reach, so there
+/// it takes at least 45% out. A dark complexion in ordinary light is
+/// smoothed as much as a fair one.
+#[test]
+fn beauty_default_smooths_clearly() {
+    let Some(mut gpu) = heavy_gpu() else { return };
+    for (k, most) in [(1, 0.5), (2, 0.55)] {
+        let (picture, got) = beauty(&mut gpu, k, 50.0, 0.0);
+        let before = spread(&picture, 96 * k, k, 26..40, 8..32);
+        let after = spread(&got, 96 * k, k, 26..40, 8..32);
+        eprintln!("x{k} default: grain {before:.5} -> {after:.5}");
+        assert!(
+            after < before * most,
+            "x{k}: the default kept {after} of {before}"
+        );
+    }
+    let size = (64, 1080);
+    let dark = skin_field(size, 1, |x, y| {
+        let pore = if (x * 7 + y * 13) % 5 < 2 {
+            0.006
+        } else {
+            -0.004
+        };
+        Some([0.06 + pore, 0.03 + pore, 0.018 + pore, 1.0])
+    });
+    let got = beautified(&mut gpu, size, &dark, 50.0);
+    let grain = |frame: &[[f32; 4]]| {
+        let lumas: Vec<f32> = (8..56)
+            .flat_map(|y| (8..56).map(move |x| (x, y)))
+            .map(|(x, y)| {
+                let d = shown(frame[(y * 64 + x) as usize]);
+                0.2126 * d[0] + 0.7152 * d[1] + 0.0722 * d[2]
+            })
+            .collect();
+        let mean = lumas.iter().sum::<f32>() / lumas.len() as f32;
+        (lumas.iter().map(|l| (l - mean).powi(2)).sum::<f32>() / lumas.len() as f32).sqrt()
+    };
+    let (before, after) = (grain(&dark), grain(&got));
+    eprintln!("dark complexion default: grain {before:.5} -> {after:.5}");
+    assert!(
+        after < before * 0.5,
+        "a dark complexion kept {after} of {before}"
+    );
+}
+
+/// HSL on a colour with a channel a little below black matches the same
+/// colour clipped to black with that channel laid back on. Beauty leaves a
+/// colour with a channel below black - too saturated to be skin - as shot
+/// on its own, that channel included, and evens a lone one inside skin
+/// into the skin like a spot, to within 0.08 in the display encoding of
+/// the skin round it (from some 0.7 off).
+#[test]
+fn colour_below_black_is_carried_through() {
+    let Some(mut gpu) = heavy_gpu() else { return };
+    let catalogue = concat_effects::Catalogue::builtin();
+    let hsl = catalogue.get("concat.hsl").expect("a built-in");
+    let pass = hsl
+        .pass(&BTreeMap::from([("orange_lum".to_owned(), 100.0)]), None)
+        .expect("a shader");
+    let picture = vec![[0.5, 0.12, -0.0005, 1.0], [0.5, 0.12, 0.0, 1.0]];
+    let got = treated(&mut gpu, (2, 1), &picture, &[pass]);
+    let laid_back = 0.0005f32.powf(1.0 / 2.4);
+    let (a, b) = (shown(got[0]), shown(got[1]));
+    let (a_blue, b_blue) = (to_display_signed(got[0][2]), to_display_signed(got[1][2]));
+    eprintln!("{a:?} vs {b:?}");
+    assert!(
+        (a[0] - b[0]).abs() < 1e-3 && (a[1] - b[1]).abs() < 1e-3,
+        "{a:?} vs {b:?}"
+    );
+    assert!(
+        (a_blue - (b_blue - laid_back)).abs() < 1e-3,
+        "the channel below black was not laid back: {a_blue} vs {b_blue}"
+    );
+    let beauty = catalogue.get("concat.beauty").expect("a built-in");
+    let pass = beauty
+        .pass(
+            &BTreeMap::from([("smoothing".to_owned(), 50.0), ("whiten".to_owned(), 100.0)]),
+            None,
+        )
+        .expect("a shader");
+    let alone = vec![[0.45, 0.25, -0.01, 1.0]];
+    let got = treated(&mut gpu, (1, 1), &alone, &[pass.clone()]);
+    eprintln!("alone: {:?}", got[0]);
+    assert!(
+        moved(got[0], alone[0]) < 1e-3 && got[0][2] < 0.0,
+        "a colour below black was not left as shot: {:?}",
+        got[0]
+    );
+    let size = (64, 1080);
+    let odd = [0.45, 0.25, -0.01, 1.0];
+    let field = skin_field(size, 1, |x, y| (x == 32 && y == 32).then_some(odd));
+    let got = treated(&mut gpu, size, &field, &[pass]);
+    let i = (32 * 64 + 32) as usize;
+    let around: Vec<[f32; 3]> = (28..37)
+        .flat_map(|x| (28..37).map(move |y| (x, y)))
+        .filter(|&(x, y)| (x, y) != (32, 32))
+        .map(|(x, y)| shown(got[(y * 64 + x) as usize]))
+        .collect();
+    let n = around.len() as f32;
+    let skin = [0, 1, 2].map(|c| around.iter().map(|p| p[c]).sum::<f32>() / n);
+    let here = shown(got[i]);
+    let off = (0..3)
+        .map(|c| (here[c] - skin[c]).abs())
+        .fold(0.0, f32::max);
+    eprintln!("in skin: {here:?}, the skin round it {skin:?}");
+    assert!(
+        got[i][2] > 0.0 && off < 0.08,
+        "a lone colour below black inside skin was not evened into it: {here:?} vs {skin:?}"
+    );
+}
+
+/// The display encoding of one channel, negative values mirrored.
+fn to_display_signed(v: f32) -> f32 {
+    v.signum() * v.abs().powf(1.0 / 2.4)
+}
+
+/// Lips are not spots: ellipses six to twelve pixels tall, red and rosy,
+/// flat and textured, on pored skin, at the default and at the most, at
+/// 1080 lines and drawn twice as large at 2160 - every pixel of them, tips
+/// included, moves by less than 0.03 in linear light (0.05 for textured
+/// lips, whose texture rosy lips may have softened), their mean colour
+/// shifts by under 0.005 in the display encoding, and textured lips keep at
+/// least a quarter of their texture at the default. Lips only four pixels
+/// tall, as on a face far off, keep their middle rows to those bounds;
+/// their outer rows may be evened like a spot, as far as the skin round
+/// them but no further.
+#[test]
+fn beauty_keeps_small_lips_whole() {
+    let Some(mut gpu) = heavy_gpu() else { return };
+    let red = [0.75, 0.30, 0.30];
+    let rosy = [0.75, 0.43, 0.38];
+    let mut failures = Vec::new();
+    for k in [1, 2] {
+        let size = (64 * k, 1080 * k);
+        for (tall, wide) in [(4.0f32, 16.0f32), (6.0, 20.0), (8.0, 30.0), (12.0, 40.0)] {
+            for (name, colour, grain) in [
+                ("red", red, 0.0f32),
+                ("rosy", rosy, 0.0),
+                ("textured red", red, 0.02),
+                ("textured rosy", rosy, 0.02),
+            ] {
+                let inside = |x: u32, y: u32| {
+                    let (dx, dy) = (
+                        (x as f32 + 0.5 - 32.0) / (wide / 2.0),
+                        (y as f32 + 0.5 - 32.0) / (tall / 2.0),
+                    );
+                    dx * dx + dy * dy <= 1.0
+                };
+                let picture = skin_field(size, k, |x, y| {
+                    inside(x, y).then(|| {
+                        // Texture in the display encoding: a shade lighter or
+                        // darker, pixel by pixel.
+                        let t = if (x * 5 + y * 3) % 4 < 2 {
+                            grain
+                        } else {
+                            -grain
+                        };
+                        lit([colour[0] + t, colour[1] + t, colour[2] + t])
+                    })
+                });
+                for smoothing in [50.0, 100.0] {
+                    let got = beautified_with(&mut gpu, size, &picture, smoothing, 30.0);
+                    let mut worst = (0.0f32, (0, 0));
+                    for y in 10..54 {
+                        for x in 10..54 {
+                            if !inside(x, y) {
+                                continue;
+                            }
+                            // Lips only four pixels tall, as on a face far
+                            // off, may lose their outer rows: those are held
+                            // to a looser bound, their middle to the full one.
+                            if tall < 6.0 && (y as f32 + 0.5 - 32.0).abs() > 1.0 {
+                                let i = ((y * k + k / 2) * 64 * k + x * k + k / 2) as usize;
+                                let drift = moved(got[i], picture[i]);
+                                // They may become skin, but no more than skin:
+                                // never further from what they were than the
+                                // skin round them is, pores and all.
+                                let skin = [0.45f32 + 0.03, 0.25 + 0.03, 0.15 + 0.03, 1.0];
+                                if drift >= moved(picture[i], skin) + 0.01 {
+                                    failures.push(format!(
+                                        "x{k} {name} lips {tall}x{wide} at {smoothing}: \
+                                         outer row moved {drift} at ({x}, {y})"
+                                    ));
+                                }
+                                continue;
+                            }
+                            let i = ((y * k + k / 2) * 64 * k + x * k + k / 2) as usize;
+                            let drift = moved(got[i], picture[i]);
+                            if drift > worst.0 {
+                                worst = (drift, (x, y));
+                            }
+                        }
+                    }
+                    let tag = format!("x{k} {name} lips {tall}x{wide} at {smoothing}");
+                    // The lips' mean colour holds, and textured lips keep at
+                    // least a quarter of their texture at the default.
+                    let (mut mean_a, mut mean_b, mut n) = ([0.0f32; 3], [0.0f32; 3], 0.0f32);
+                    let (mut var_a, mut var_b) = (0.0f32, 0.0f32);
+                    let mut lumas = Vec::new();
+                    for y in 10..54 {
+                        for x in 10..54 {
+                            if inside(x, y) && (tall >= 6.0 || (y as f32 + 0.5 - 32.0).abs() <= 1.0)
+                            {
+                                let i = ((y * k + k / 2) * 64 * k + x * k + k / 2) as usize;
+                                let (a, b) = (shown(picture[i]), shown(got[i]));
+                                for c in 0..3 {
+                                    mean_a[c] += a[c];
+                                    mean_b[c] += b[c];
+                                }
+                                lumas.push((a[1], b[1]));
+                                n += 1.0;
+                            }
+                        }
+                    }
+                    let shift = (0..3)
+                        .map(|c| ((mean_a[c] - mean_b[c]) / n).abs())
+                        .fold(0.0, f32::max);
+                    let (ma, mb) = (mean_a[1] / n, mean_b[1] / n);
+                    for (a, b) in &lumas {
+                        var_a += (a - ma).powi(2);
+                        var_b += (b - mb).powi(2);
+                    }
+                    if shift >= 0.005 {
+                        failures.push(format!("{tag}: mean colour shifted {shift}"));
+                    }
+                    if grain > 0.0 && smoothing <= 50.0 && var_b < var_a * 0.0625 {
+                        failures.push(format!("{tag}: texture kept {}", (var_b / var_a).sqrt()));
+                    }
+                    eprintln!("{tag}: worst {:.4} at {:?}", worst.0, worst.1);
+                    // Textured lips share skin's hues when rosy, so their
+                    // texture may be softened; their colour and shape stay.
+                    let most = if grain > 0.0 { 0.05 } else { 0.03 };
+                    if worst.0 >= most {
+                        failures.push(format!("{tag} moved {} at {:?}", worst.0, worst.1));
+                    }
+                }
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{failures:#?}");
+}
+
+/// Spots in a cluster each go, every pixel of them, at the default, at
+/// 1080 lines and drawn twice as large at 2160: three acne or red spots
+/// three pixels across with centres seven to fourteen pixels apart, or five
+/// pixels across with centres eleven or fourteen apart, each lose at least
+/// 60% of how far they stand out. Five-pixel spots closer than that may be
+/// left largely as they are, as the package says, but none ends up standing
+/// out more than a quarter further (whiten lifting the skin round it), and
+/// no cluster leaves a halo.
+#[test]
+fn beauty_takes_spots_in_a_cluster() {
+    let Some(mut gpu) = heavy_gpu() else { return };
+    let acne = [0.33, 0.13, 0.08, 1.0];
+    let red = [0.40, 0.10, 0.08, 1.0];
+    let mut failures = Vec::new();
+    for k in [1, 2] {
+        let size = (64 * k, 1080 * k);
+        for (name, colour) in [("acne", acne), ("red spots", red)] {
+            for radius in [1.5f32, 2.5] {
+                for apart in [7.0f32, 9.0, 11.0, 14.0] {
+                    // Five-pixel spots closer than about ten pixels may read
+                    // as one patch, as the package says: they are bounded
+                    // only by leaving no halo and never standing out more.
+                    let close = radius > 2.0 && apart < 10.0;
+                    let centres = [
+                        (32.0 - apart / 2.0, 30.0),
+                        (32.0 + apart / 2.0, 30.0),
+                        (32.0, 30.0 + apart * 0.866),
+                    ];
+                    let which = |x: u32, y: u32| {
+                        centres.iter().position(|&(cx, cy)| {
+                            let (dx, dy) = (x as f32 + 0.5 - cx, y as f32 + 0.5 - cy);
+                            dx * dx + dy * dy <= radius * radius
+                        })
+                    };
+                    let picture = skin_field(size, k, |x, y| which(x, y).map(|_| colour));
+                    let got = beautified_with(&mut gpu, size, &picture, 50.0, 30.0);
+                    let at = |frame: &[[f32; 4]], (x, y): (u32, u32)| {
+                        shown(frame[((y * k + k / 2) * 64 * k + x * k + k / 2) as usize])
+                    };
+                    let skin = |frame: &[[f32; 4]]| {
+                        let around: Vec<[f32; 3]> = (4..60)
+                            .flat_map(|x| [4u32, 58].map(move |y| (x, y)))
+                            .map(|p| at(frame, p))
+                            .collect();
+                        let n = around.len() as f32;
+                        [0, 1, 2].map(|c| around.iter().map(|p| p[c]).sum::<f32>() / n)
+                    };
+                    let apart_from = |a: [f32; 3], b: [f32; 3]| {
+                        (0..3).map(|c| (a[c] - b[c]).abs()).fold(0.0, f32::max)
+                    };
+                    let (skin_before, skin_after) = (skin(&picture), skin(&got));
+                    let mut before = [0.0f32; 3];
+                    let mut after = [0.0f32; 3];
+                    for y in 10..54 {
+                        for x in 10..54 {
+                            if let Some(n) = which(x, y) {
+                                before[n] =
+                                    before[n].max(apart_from(at(&picture, (x, y)), skin_before));
+                                after[n] = after[n].max(apart_from(at(&got, (x, y)), skin_after));
+                            }
+                        }
+                    }
+                    let mut halo = 0.0f32;
+                    for y in 10..54 {
+                        for x in 10..54 {
+                            let near = centres.iter().any(|&(cx, cy)| {
+                                let (dx, dy) = (x as f32 + 0.5 - cx, y as f32 + 0.5 - cy);
+                                let d = (dx * dx + dy * dy).sqrt();
+                                d > radius + 1.0 && d < radius + 3.0
+                            });
+                            if near && which(x, y).is_none() {
+                                halo = halo.max(apart_from(at(&got, (x, y)), skin_after));
+                            }
+                        }
+                    }
+                    for n in 0..3 {
+                        let tag = format!("x{k} {name} {radius:.1} px, {apart} px apart, spot {n}");
+                        eprintln!("{tag}: {:.4} -> {:.4}, halo {halo:.4}", before[n], after[n]);
+                        let most = if close { 1.25 } else { 0.4 };
+                        if after[n] >= before[n] * most {
+                            failures.push(format!("{tag} stayed: {} -> {}", before[n], after[n]));
+                        }
+                    }
+                    if halo >= 0.04 {
+                        failures.push(format!(
+                            "x{k} {name} {radius:.1} px, {apart} px apart: halo {halo}"
+                        ));
+                    }
+                }
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{failures:#?}");
+}
+
+/// A spot past six pixels across may be left as it is or evened only in
+/// part, as the package says - its rim may be kept round an evened middle -
+/// but it is bounded: spots seven to sixteen pixels across, placed four
+/// ways against the pixel grid, at 25, the default and the most with whiten
+/// at 30, and at the default and the most with whiten at its most, at 1080
+/// lines and drawn twice as large at 2160. No pixel of one stands out more
+/// than a quarter further than it did (whiten lifting the skin round it),
+/// or 0.45 further at full whiten, and it leaves no halo (0.04 in the
+/// display encoding).
+#[test]
+fn beauty_leaves_large_spots_whole() {
+    let Some(mut gpu) = heavy_gpu() else { return };
+    let acne = [0.33, 0.13, 0.08, 1.0];
+    let red = [0.40, 0.10, 0.08, 1.0];
+    let placements = [(32.0f32, 32.0f32), (32.5, 32.0), (32.0, 32.6), (32.3, 31.7)];
+    let mut failures = Vec::new();
+    for k in [1, 2] {
+        let size = (64 * k, 1080 * k);
+        for (name, colour) in [("acne", acne), ("red spot", red)] {
+            for across in [7.0f32, 8.0, 10.0, 12.0, 16.0] {
+                let radius = across / 2.0;
+                for (cx, cy) in placements {
+                    let off = |x: u32, y: u32| {
+                        let (dx, dy) = (x as f32 + 0.5 - cx, y as f32 + 0.5 - cy);
+                        (dx * dx + dy * dy).sqrt()
+                    };
+                    let picture =
+                        skin_field(size, k, |x, y| (off(x, y) <= radius).then_some(colour));
+                    for (smoothing, whiten) in [
+                        (25.0, 30.0),
+                        (50.0, 30.0),
+                        (100.0, 30.0),
+                        (50.0, 100.0),
+                        (100.0, 100.0),
+                    ] {
+                        let got = beautified_with(&mut gpu, size, &picture, smoothing, whiten);
+                        let at = |frame: &[[f32; 4]], (x, y): (u32, u32)| {
+                            shown(frame[((y * k + k / 2) * 64 * k + x * k + k / 2) as usize])
+                        };
+                        let skin = |frame: &[[f32; 4]]| {
+                            let around: Vec<[f32; 3]> = (4..60)
+                                .flat_map(|x| [4u32, 59].map(move |y| (x, y)))
+                                .map(|p| at(frame, p))
+                                .collect();
+                            let n = around.len() as f32;
+                            [0, 1, 2].map(|c| around.iter().map(|p| p[c]).sum::<f32>() / n)
+                        };
+                        let apart = |a: [f32; 3], b: [f32; 3]| {
+                            (0..3).map(|c| (a[c] - b[c]).abs()).fold(0.0, f32::max)
+                        };
+                        let (skin_before, skin_after) = (skin(&picture), skin(&got));
+                        let (mut worst, mut halo) = (0.0f32, 0.0f32);
+                        for y in 8..56 {
+                            for x in 8..56 {
+                                let d = off(x, y);
+                                if d <= radius {
+                                    let before = apart(at(&picture, (x, y)), skin_before);
+                                    let left = apart(at(&got, (x, y)), skin_after) / before;
+                                    worst = worst.max(left);
+                                } else if d > radius + 1.0 && d < radius + 3.0 {
+                                    halo = halo.max(apart(at(&got, (x, y)), skin_after));
+                                }
+                            }
+                        }
+                        let tag = format!(
+                            "x{k} {across} px {name} at ({cx}, {cy}), {smoothing}, whiten {whiten}"
+                        );
+                        eprintln!("{tag}: worst {worst:.3}, halo {halo:.4}");
+                        let most = if whiten > 50.0 { 1.45 } else { 1.25 };
+                        if worst > most {
+                            failures.push(format!("{tag}: stands out {worst} as far"));
+                        }
+                        if halo >= 0.04 {
+                            failures.push(format!("{tag}: halo {halo}"));
+                        }
+                    }
+                }
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{failures:#?}");
+}
+
+/// Lips too small to tell from a spot, bounded: lips three pixels tall at
+/// 1080 lines, and lips four to eight pixels tall in a vertical frame 1920
+/// lines tall (where the reach is nearly twice as many pixels), may be
+/// evened into the skin, as the package says - but every channel of every
+/// pixel of them lands between the lips' own and the skin's - from its
+/// darkest pore to the brightest the skin came out - at the default and at
+/// the most, and with whiten at its most. Lips twelve pixels tall in the
+/// vertical frame keep the full bounds of lips: every pixel within 0.03 in
+/// linear light, the mean within 0.005 in the display encoding.
+#[test]
+fn beauty_bounds_lips_too_small_to_tell() {
+    let Some(mut gpu) = heavy_gpu() else { return };
+    let red = lit([0.75, 0.30, 0.30]);
+    let rosy = lit([0.75, 0.43, 0.38]);
+    let skin = [0.45f32 + 0.03, 0.25 + 0.03, 0.15 + 0.03, 1.0];
+    let mut failures = Vec::new();
+    for (height, tall, wide, full) in [
+        (1080, 3.0f32, 14.0f32, false),
+        (1080, 3.0, 20.0, false),
+        (1920, 4.0, 16.0, false),
+        (1920, 6.0, 20.0, false),
+        (1920, 8.0, 30.0, false),
+        (1920, 12.0, 40.0, true),
+    ] {
+        for (name, colour) in [("red", red), ("rosy", rosy)] {
+            let size = (64, height);
+            let inside = |x: u32, y: u32| {
+                let dx = (x as f32 + 0.5 - 32.0) / (wide / 2.0);
+                let dy = (y as f32 + 0.5 - 32.0) / (tall / 2.0);
+                dx * dx + dy * dy <= 1.0
+            };
+            let picture = skin_field(size, 1, |x, y| inside(x, y).then_some(colour));
+            for (smoothing, whiten) in [(50.0, 30.0), (100.0, 30.0), (50.0, 100.0)] {
+                let got = beautified_with(&mut gpu, size, &picture, smoothing, whiten);
+                // The brightest the skin itself came out, well clear of the lips.
+                let mut lifted = [0.0f32; 3];
+                for y in (2..12).chain(52..62) {
+                    for x in 2..62 {
+                        let px = got[(y * 64 + x) as usize];
+                        for c in 0..3 {
+                            lifted[c] = lifted[c].max(px[c]);
+                        }
+                    }
+                }
+                let tag = format!(
+                    "{name} lips {tall}x{wide} at {height} lines, {smoothing}, whiten {whiten}"
+                );
+                let (mut worst, mut a, mut b, mut n) = (0.0f32, [0.0f32; 3], [0.0f32; 3], 0.0f32);
+                for y in 10..54 {
+                    for x in 10..54 {
+                        if !inside(x, y) {
+                            continue;
+                        }
+                        let i = (y * 64 + x) as usize;
+                        let drift = moved(got[i], picture[i]);
+                        worst = worst.max(drift);
+                        // Each channel lands between the lips' own and the
+                        // skin's, from its darkest pore to whitened, give or take 0.01.
+                        for c in 0..3 {
+                            let low = picture[i][c].min(skin[c] - 0.05) - 0.01;
+                            let high = picture[i][c].max(lifted[c]) + 0.01;
+                            if got[i][c] < low || got[i][c] > high {
+                                failures.push(format!(
+                                "{tag}: ({x}, {y}) channel {c} at {} is not between lips and skin",
+                                got[i][c]
+                            ));
+                            }
+                        }
+                        let (pa, pb) = (shown(picture[i]), shown(got[i]));
+                        for c in 0..3 {
+                            a[c] += pa[c];
+                            b[c] += pb[c];
+                        }
+                        n += 1.0;
+                    }
+                }
+                let shift = (0..3)
+                    .map(|c| ((a[c] - b[c]) / n).abs())
+                    .fold(0.0, f32::max);
+                eprintln!("{tag}: worst {worst:.4}, mean shift {shift:.4}");
+                if full && (worst >= 0.03 || shift >= 0.005) {
+                    failures.push(format!("{tag}: moved {worst}, mean {shift}"));
+                }
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{failures:#?}");
+}
+
+/// Every band's saturation at its most, across a wheel of mid to strong
+/// saturations and brightnesses up to white: no channel goes below black,
+/// none goes past white that was not already, chroma rises below white, and
+/// there is no seam between neighbours.
+#[test]
+fn hsl_saturation_at_its_most_stops_at_black_and_white() {
+    let Some(mut gpu) = heavy_gpu() else { return };
+    let hsl = concat_effects::Catalogue::builtin()
+        .get("concat.hsl")
+        .expect("a built-in");
+    let values: BTreeMap<String, f64> = BANDS
+        .iter()
+        .map(|(band, _)| (format!("{band}_sat"), 100.0))
+        .collect();
+    let pass = hsl.pass(&values, None).expect("a shader");
+    for (s, v) in [
+        (0.5f32, 0.6f32),
+        (0.5, 1.0),
+        (0.8, 0.8),
+        (0.95, 1.0),
+        (0.3, 0.9),
+        (0.95, 0.7),
+    ] {
+        let size = (720, 1);
+        let wheel: Vec<[f32; 4]> = (0..size.0)
+            .map(|x| lit(hsv(x as f32 / 2.0, s, v)))
+            .collect();
+        let got = treated(&mut gpu, size, &wheel, &[pass.clone()]);
+        for x in 0..got.len() {
+            let (before, after) = (shown(wheel[x]), shown(got[x]));
+            for c in 0..3 {
+                assert!(
+                    got[x][c] >= -1e-4,
+                    "s {s} v {v}: channel {c} below black at {x}"
+                );
+                assert!(
+                    after[c] <= before[c].max(1.0) + 2e-3,
+                    "s {s} v {v}: channel {c} past white at {x}: {before:?} -> {after:?}"
+                );
+            }
+            let (_, c0) = hue_and_chroma(before);
+            let (_, c1) = hue_and_chroma(after);
+            if v < 0.95 {
+                assert!(
+                    c1 > c0 + 0.01,
+                    "s {s} v {v}: chroma did not rise at {x}: {c0} -> {c1}"
+                );
+            }
+            // No seam: a step round the wheel out is at most three times
+            // the step in, in the display encoding.
+            let apart = |a: [f32; 4], b: [f32; 4]| {
+                let (a, b) = (shown(a), shown(b));
+                (0..3).map(|c| (a[c] - b[c]).abs()).fold(0.0, f32::max)
+            };
+            let step = apart(got[x], got[(x + 1) % got.len()]);
+            let input = apart(wheel[x], wheel[(x + 1) % wheel.len()]);
+            assert!(
+                step <= 3.0 * input + 1e-3,
+                "s {s} v {v}: a seam of {step} for {input} at {x}"
+            );
+        }
+    }
+}
+
+/// Saturation up along a ramp of brightness, from half way to white, past
+/// white and a little beyond, at several hues - pale yellow, cyan and cream
+/// among them - and at +40 (the card's own blue) and +100: brightness only
+/// rises along the ramp, each step out is at most three times the step in,
+/// and no channel jumps where the ramp crosses white.
+#[test]
+fn hsl_saturation_keeps_a_ramp_to_white_in_order() {
+    let Some(mut gpu) = heavy_gpu() else { return };
+    let hsl = concat_effects::Catalogue::builtin()
+        .get("concat.hsl")
+        .expect("a built-in");
+    let steps = 220u32;
+    for amount in [40.0, 100.0] {
+        let values: BTreeMap<String, f64> = BANDS
+            .iter()
+            .map(|(band, _)| (format!("{band}_sat"), amount))
+            .collect();
+        let pass = hsl.pass(&values, None).expect("a shader");
+        for top in [
+            [0.45f32, 0.6, 1.0],
+            [1.0, 0.5, 0.0],
+            [1.0, 0.9, 0.3],
+            [0.3, 1.0, 0.4],
+            [1.0, 0.97, 0.7],
+            [0.7, 1.0, 0.97],
+            [1.0, 0.9, 0.8],
+        ] {
+            let ramp: Vec<[f32; 4]> = (0..steps)
+                .map(|i| {
+                    let f = 0.5 + 0.55 * i as f32 / (steps - 1) as f32;
+                    lit([top[0] * f, top[1] * f, top[2] * f])
+                })
+                .collect();
+            let got = treated(&mut gpu, (steps, 1), &ramp, &[pass.clone()]);
+            let bright = |px: [f32; 4]| {
+                let d = shown(px);
+                0.2126 * d[0] + 0.7152 * d[1] + 0.0722 * d[2]
+            };
+            for i in 0..steps as usize - 1 {
+                let (a, b) = (bright(got[i]), bright(got[i + 1]));
+                assert!(
+                    b > a - 1e-3,
+                    "{top:?} at {amount}: brightness fell at {i}: {a} -> {b}"
+                );
+                let step = (0..3)
+                    .map(|c| (shown(got[i + 1])[c] - shown(got[i])[c]).abs())
+                    .fold(0.0, f32::max);
+                let input = (0..3)
+                    .map(|c| (shown(ramp[i + 1])[c] - shown(ramp[i])[c]).abs())
+                    .fold(0.0, f32::max);
+                assert!(
+                    step <= 3.0 * input + 1e-3,
+                    "{top:?} at {amount}: a step of {step} for {input} in at {i}"
+                );
+            }
+        }
+    }
+}
+
+/// Saturation at +100 over a grid of mid colours, chroma 0.15 or more,
+/// brightest channel at most 0.75, in the display encoding: chroma never
+/// more than doubles; it at least half again where the brightest channel is
+/// at most 0.6, and at least 1.35 times everywhere in the grid; brightness
+/// is kept throughout.
+#[test]
+fn hsl_saturation_doubles_mid_colours() {
+    let Some(mut gpu) = heavy_gpu() else { return };
+    let hsl = concat_effects::Catalogue::builtin()
+        .get("concat.hsl")
+        .expect("a built-in");
+    let values: BTreeMap<String, f64> = BANDS
+        .iter()
+        .map(|(band, _)| (format!("{band}_sat"), 100.0))
+        .collect();
+    let pass = hsl.pass(&values, None).expect("a shader");
+    let levels = [0.2f32, 0.3, 0.4, 0.5, 0.6, 0.7, 0.75];
+    let mut colours = Vec::new();
+    for r in levels {
+        for g in levels {
+            for b in levels {
+                let c = [r, g, b];
+                let (_, chroma) = hue_and_chroma(c);
+                if chroma >= 0.15 {
+                    colours.push(c);
+                }
+            }
+        }
+    }
+    let picture: Vec<[f32; 4]> = colours.iter().map(|c| lit(*c)).collect();
+    let got = treated(&mut gpu, (colours.len() as u32, 1), &picture, &[pass]);
+    let bright = |d: [f32; 3]| 0.2126 * d[0] + 0.7152 * d[1] + 0.0722 * d[2];
+    let mut failures = Vec::new();
+    let mut least = f32::MAX;
+    for (i, colour) in colours.iter().enumerate() {
+        let after = shown(got[i]);
+        let (_, c0) = hue_and_chroma(*colour);
+        let (_, c1) = hue_and_chroma(after);
+        let gain = c1 / c0;
+        least = least.min(gain);
+        let y = bright(*colour);
+        let high = colour[0].max(colour[1]).max(colour[2]);
+        if high <= 0.6 && gain < 1.5 {
+            failures.push(format!("{colour:?} has room and gained only {gain}"));
+        }
+        if gain < 1.35 || gain > 2.0 + 1e-3 {
+            failures.push(format!("{colour:?} gained {gain}"));
+        }
+        if (bright(after) - y).abs() >= 2e-3 {
+            failures.push(format!("{colour:?}: brightness moved"));
+        }
+    }
+    eprintln!("{} colours, least gain {least:.3}", colours.len());
+    assert!(failures.is_empty(), "{failures:#?}");
+}
+
+/// Close clusters of five-pixel red spots - the case the package says may
+/// be left largely as it is - with whiten at its most, at the default and
+/// the most smoothing: no spot ends up standing out more than 0.45 further
+/// than it did, and no cluster leaves a halo (0.04 in the display encoding).
+#[test]
+fn beauty_bounds_close_clusters_at_full_whiten() {
+    let Some(mut gpu) = heavy_gpu() else { return };
+    let red = [0.40, 0.10, 0.08, 1.0];
+    let size = (64, 1080);
+    let mut failures = Vec::new();
+    for apart in [7.0f32, 9.0] {
+        let centres = [
+            (32.0 - apart / 2.0, 30.0),
+            (32.0 + apart / 2.0, 30.0),
+            (32.0, 30.0 + apart * 0.866),
+        ];
+        let off = |x: u32, y: u32| {
+            centres
+                .iter()
+                .map(|&(cx, cy)| {
+                    let (dx, dy) = (x as f32 + 0.5 - cx, y as f32 + 0.5 - cy);
+                    (dx * dx + dy * dy).sqrt()
+                })
+                .fold(f32::MAX, f32::min)
+        };
+        let picture = skin_field(size, 1, |x, y| (off(x, y) <= 2.5).then_some(red));
+        for smoothing in [50.0, 100.0] {
+            let got = beautified_with(&mut gpu, size, &picture, smoothing, 100.0);
+            let at = |frame: &[[f32; 4]], x: u32, y: u32| shown(frame[(y * 64 + x) as usize]);
+            let skin = |frame: &[[f32; 4]]| {
+                let around: Vec<[f32; 3]> = (4..60)
+                    .flat_map(|x| [4u32, 58].map(move |y| at(frame, x, y)))
+                    .collect();
+                let n = around.len() as f32;
+                [0, 1, 2].map(|c| around.iter().map(|p| p[c]).sum::<f32>() / n)
+            };
+            let apart_from =
+                |a: [f32; 3], b: [f32; 3]| (0..3).map(|c| (a[c] - b[c]).abs()).fold(0.0, f32::max);
+            let (sb, sa) = (skin(&picture), skin(&got));
+            let (mut worst, mut halo) = (0.0f32, 0.0f32);
+            for y in 10..54 {
+                for x in 10..54 {
+                    let d = off(x, y);
+                    if d <= 2.5 {
+                        let ratio =
+                            apart_from(at(&got, x, y), sa) / apart_from(at(&picture, x, y), sb);
+                        worst = worst.max(ratio);
+                    } else if d > 3.5 && d < 5.5 {
+                        halo = halo.max(apart_from(at(&got, x, y), sa));
+                    }
+                }
+            }
+            let tag = format!("{apart} px apart at {smoothing}");
+            eprintln!("{tag}: worst {worst:.3}, halo {halo:.4}");
+            if worst > 1.45 {
+                failures.push(format!("{tag}: stands out {worst} as far"));
+            }
+            if halo >= 0.04 {
+                failures.push(format!("{tag}: halo {halo}"));
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{failures:#?}");
+}

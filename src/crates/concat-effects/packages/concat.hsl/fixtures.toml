@@ -1,0 +1,57 @@
+# Colours in the working space: linear light, 1.0 the white of an SDR
+# picture.
+
+[[probe]]
+name = "default"
+input = [0.3, 0.2, 0.12, 1]
+expect = [0.3, 0.2, 0.12, 1]
+
+# Every slider at its least: each colour is pulled to grey, darkened and
+# turned back towards the band before.
+[[probe]]
+name = "minimum"
+at = "min"
+input = [0.45, 0.3, 0.2, 1]
+expect = [0.071594, 0.071594, 0.071594, 1]
+
+[[probe]]
+name = "maximum"
+at = "max"
+input = [0.1, 0.2, 0.5, 1]
+expect = [0.38281, 0.30811, 1, 1]
+
+[[probe]]
+name = "pure red at red saturation -100 is grey"
+params = { red_sat = -100 }
+input = [0.5, 0.02, 0.02, 1]
+expect = [0.061798, 0.061798, 0.061798, 1]
+
+[[probe]]
+name = "red hue +100 turns red towards orange"
+params = { red_hue = 100 }
+input = [0.5, 0.02, 0.02, 1]
+expect = [0.5, 0.12268, 0.020004, 1]
+
+[[probe]]
+name = "a sky is untouched by orange at its most"
+params = { orange_hue = 100, orange_sat = 100, orange_lum = 100 }
+input = [0.05, 0.12, 0.45, 1]
+expect = [0.05, 0.12, 0.45, 1]
+
+[[probe]]
+name = "grey is grey at every maximum"
+at = "max"
+input = [0.25, 0.25, 0.25, 1]
+expect = [0.25, 0.25, 0.25, 1]
+
+[[probe]]
+name = "a pale skin at orange luminance +100 stays below white"
+params = { orange_lum = 100 }
+input = [0.85, 0.6, 0.48, 1]
+expect = [0.99268, 0.70068, 0.56006, 1]
+
+[[probe]]
+name = "orange at luminance +100 brightens and keeps most of its saturation"
+params = { orange_lum = 100 }
+input = [0.5, 0.12, 0.02, 1]
+expect = [1, 0.27954, 0.065552, 1]

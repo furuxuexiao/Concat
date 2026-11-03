@@ -1,0 +1,279 @@
+format = 2
+
+[effect]
+id = "concat.hsl"
+name = "HSL"
+kind = "effect"
+category = "Color"
+order = 16
+description = "Eight bands of colour, each turned, saturated and brightened on its own: a sky bluer without touching a face, a lawn calmer without touching the sky."
+
+# Each band a hue, a saturation and a luminance slider, -100 to 100 and 0
+# at rest, where the picture is as shot. Hue turns the band up to 30
+# degrees round the wheel: plus towards the next band (red to orange, blue
+# to purple), minus towards the one before. Where two neighbours' turns
+# would differ by more than 0.8 of the gap between them - a band only 30
+# degrees from the next turns at most 24 - both are eased back, so the
+# wheel stretches or squeezes but never folds. Saturation pushes the band
+# from a grey of its own brightness at -100 towards double at 100: close
+# to double for a mid colour with room, at least half again for one whose
+# brightest channel is at most 0.6, and at least 1.35 times up to 0.75 -
+# least for greens with a deep channel, whose luma leaves the least room,
+# keeping its brightness and easing off as a channel nears black or white,
+# so richness tapers near the ends of the range: a pale colour gains less,
+# mostly over its last quarter of brightness below white, and none at or
+# past white, and a near-pure colour, a channel already near black, gains
+# little. Luminance darkens it to 0.6 at -100 and lifts its brightness 0.4
+# of the way to white at 100 - by scaling it while it has room, keeping
+# hue and saturation, and only then by blending towards white, so a sky or
+# a yellow already near white still brightens. A colour between two band
+# centres is moved by both, weighted by how near it sits to each, so a
+# slider acts fully at its own centre, not at all at its neighbours', and
+# the hand-over has no seam. Greys are left alone.
+
+[[param]]
+key = "red_hue"
+group = "Red"
+label = "Hue"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "red_sat"
+group = "Red"
+label = "Saturation"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "red_lum"
+group = "Red"
+label = "Luminance"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "orange_hue"
+group = "Orange"
+label = "Hue"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "orange_sat"
+group = "Orange"
+label = "Saturation"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "orange_lum"
+group = "Orange"
+label = "Luminance"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "yellow_hue"
+group = "Yellow"
+label = "Hue"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "yellow_sat"
+group = "Yellow"
+label = "Saturation"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "yellow_lum"
+group = "Yellow"
+label = "Luminance"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "green_hue"
+group = "Green"
+label = "Hue"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "green_sat"
+group = "Green"
+label = "Saturation"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "green_lum"
+group = "Green"
+label = "Luminance"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "cyan_hue"
+group = "Cyan"
+label = "Hue"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "cyan_sat"
+group = "Cyan"
+label = "Saturation"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "cyan_lum"
+group = "Cyan"
+label = "Luminance"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "blue_hue"
+group = "Blue"
+label = "Hue"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "blue_sat"
+group = "Blue"
+label = "Saturation"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "blue_lum"
+group = "Blue"
+label = "Luminance"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "purple_hue"
+group = "Purple"
+label = "Hue"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "purple_sat"
+group = "Purple"
+label = "Saturation"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "purple_lum"
+group = "Purple"
+label = "Luminance"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "magenta_hue"
+group = "Magenta"
+label = "Hue"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "magenta_sat"
+group = "Magenta"
+label = "Saturation"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "magenta_lum"
+group = "Magenta"
+label = "Luminance"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[wgsl]
+entry = "effect.wgsl"
+space = "display"
+
+[card]
+params = { "blue_sat" = 40, "orange_lum" = 15, "green_sat" = -30 }

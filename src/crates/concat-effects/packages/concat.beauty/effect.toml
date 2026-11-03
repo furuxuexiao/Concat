@@ -1,0 +1,57 @@
+format = 2
+
+[effect]
+id = "concat.beauty"
+name = "Beauty"
+kind = "filter"
+category = "Portrait"
+order = 19
+intensity = "smoothing"
+description = "Skin smoothed and brightened: pores, acne and small spots evened where the colour is skin; hairs, creases, eyes, edges and the colour and outline of lips not too small to tell from a spot kept."
+
+# Smooth evens skin with a blur that gathers only skin of a similar tint
+# and brightness, and fills small warm blemishes from the skin round them:
+# pores, acne and spots fade, while shine, thin lines - hairs, brow hairs,
+# creases, lashes - eyes, lips, writing and the edge of a face keep their
+# line. Rosy lips have their texture softened like skin's, keeping their
+# colour and outline; lips only four pixels tall, on a face far off, may
+# lose their outer rows, and smaller lips may be evened into the skin.
+# Sizes are at 1080 lines of the frame's height: the reach follows the
+# height, so in a vertical 1080 by 1920 frame they are nearly twice as
+# many pixels - lips under about eight pixels tall there. Spots up to six
+# pixels across at 1080 lines are found at any setting and filled in full
+# from a Smooth of 40 - red and pink ones, the hue of lips, less surely
+# below the default; a larger spot, or a close cluster of five-pixel
+# spots, may be left largely as it is or evened only in part, sometimes
+# keeping its rim round an evened middle; it never ends up standing out
+# more than a quarter further than it did, or nearly half as far again at
+# full Whiten, which lifts the skin round a red spot it keeps. A brown
+# texture the colour of skin with no line to it, like the body of a head
+# of hair, is softened with skin at high settings. Whiten lifts and
+# slightly calms skin; a ruddy cheek, the hue of lips, only lightly, so
+# lips keep their colour; a spot Smooth has filled is whitened as the skin
+# it now is. Dark complexions in ordinary light are smoothed like any
+# other; only skin in deep shadow is left. Both are percents from nothing;
+# at 0 the picture is as shot, and Smooth eases in, taking most of the
+# texture out by its default.
+[[param]]
+key = "smoothing"
+label = "Smooth"
+min = 0
+max = 100
+default = 50
+step = 1
+unit = "%"
+
+[[param]]
+key = "whiten"
+label = "Whiten"
+min = 0
+max = 100
+default = 30
+step = 1
+unit = "%"
+
+[wgsl]
+entry = "effect.wgsl"
+space = "display"
