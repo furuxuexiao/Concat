@@ -27,6 +27,7 @@ pub mod doc;
 pub mod editor;
 pub mod model;
 pub mod placement;
+pub mod smart_cut;
 pub mod speed;
 pub mod srt;
 
@@ -5539,6 +5540,152 @@ mod tests {
         let gone = ["nobody".to_owned()];
         assert!(
             crate::delete_to_playhead(timeline, &gone, 5.0, PlayheadSide::Left, false).is_none()
+        );
+    }
+    /// (start, duration, source_start) of each clip on `track_id`, in time order.
+    fn spans_on(editor: &Editor, track_id: &str) -> Vec<(f64, f64, f64)> {
+        let mut out: Vec<(f64, f64, f64)> = editor
+            .project()
+            .active()
+            .clips
+            .iter()
+            .filter(|clip| clip.track_id == track_id)
+            .map(|clip| (clip.start, clip.duration, clip.source_start))
+            .collect();
+        out.sort_by(|a, b| a.0.total_cmp(&b.0));
+        out
+    }
+
+    fn close_to(got: &[(f64, f64, f64)], want: &[(f64, f64, f64)]) {
+        assert_eq!(got.len(), want.len(), "{got:?} vs {want:?}");
+        for (g, w) in got.iter().zip(want) {
+            assert!(
+                (g.0 - w.0).abs() < 1e-9 && (g.1 - w.1).abs() < 1e-9 && (g.2 - w.2).abs() < 1e-9,
+                "{got:?} vs {want:?}"
+            );
+        }
+    }
+
+    fn title(editor: &mut Editor, start: f64, duration: f64) -> String {
+        editor
+            .apply(Command::AddTextClip {
+                above: true,
+                track_id: None,
+                start,
+                style: None,
+                duration: Some(duration),
+                offset_y: None,
+            })
+            .expect("adds")
+            .created_id
+            .expect("id")
+    }
+
+    #[test]
+    fn remove_spans_cuts_the_middle_of_one_clip() {
+        let (mut editor, _, clip_id) = fixture();
+        let track = editor.project().active().tracks[0].id.clone();
+        let outcome = editor
+            .apply(Command::RemoveSpans {
+                spans: vec![(3.0, 5.0)],
+                track_ids: Vec::new(),
+            })
+            .expect("cuts");
+        assert!(outcome.applied);
+        close_to(
+            &spans_on(&editor, &track),
+            &[(0.0, 3.0, 0.0), (3.0, 5.0, 5.0)],
+        );
+        let clips = &editor.project().active().clips;
+        assert_eq!(clips.len(), 2);
+        assert_eq!(clips[0].id, clip_id, "the head keeps its id");
+        assert_ne!(clips[1].id, clip_id);
+    }
+
+    #[test]
+    fn remove_spans_shrinks_titles_and_drops_slivers() {
+        let (mut editor, _, _) = fixture();
+        let across = title(&mut editor, 2.0, 4.0);
+        let inside = title(&mut editor, 3.2, 1.5);
+        let after = title(&mut editor, 7.0, 1.0);
+        editor
+            .apply(Command::RemoveSpans {
+                spans: vec![(3.0, 5.0)],
+                track_ids: Vec::new(),
+            })
+            .expect("cuts");
+        let timeline = editor.project().active();
+        let across = timeline.clip(&across).expect("kept");
+        assert!((across.start - 2.0).abs() < 1e-9 && (across.duration - 2.0).abs() < 1e-9);
+        assert!(timeline.clip(&inside).is_none(), "wholly cut title goes");
+        let after = timeline.clip(&after).expect("kept");
+        assert!((after.start - 5.0).abs() < 1e-9 && (after.duration - 1.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn remove_spans_crosses_clips_and_takes_several_spans() {
+        let (mut editor, media_id, _) = fixture();
+        let track = editor.project().active().tracks[0].id.clone();
+        lane(&mut editor, &media_id, &track, &[10.0]);
+        editor
+            .apply(Command::RemoveSpans {
+                spans: vec![(8.0, 12.0), (1.0, 2.0), (1.5, 2.0)],
+                track_ids: vec![track.clone()],
+            })
+            .expect("cuts");
+        close_to(
+            &spans_on(&editor, &track),
+            &[(0.0, 1.0, 0.0), (1.0, 6.0, 2.0), (7.0, 8.0, 2.0)],
+        );
+        let total: f64 = spans_on(&editor, &track).iter().map(|s| s.1).sum();
+        assert!((total - 15.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn remove_spans_leaves_other_tracks_alone() {
+        let (mut editor, _, _) = fixture();
+        let words = title(&mut editor, 6.0, 2.0);
+        let track = editor.project().active().tracks[0].id.clone();
+        editor
+            .apply(Command::RemoveSpans {
+                spans: vec![(3.0, 5.0)],
+                track_ids: vec![track],
+            })
+            .expect("cuts");
+        let words = editor.project().active().clip(&words).expect("kept");
+        assert!((words.start - 6.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn remove_spans_is_one_undo_step() {
+        let (mut editor, media_id, _) = fixture();
+        let track = editor.project().active().tracks[0].id.clone();
+        lane(&mut editor, &media_id, &track, &[10.0]);
+        title(&mut editor, 2.0, 4.0);
+        let before = editor.project().active().clips.clone();
+        editor
+            .apply(Command::RemoveSpans {
+                spans: vec![(1.0, 2.0), (8.0, 12.0)],
+                track_ids: Vec::new(),
+            })
+            .expect("cuts");
+        assert_ne!(editor.project().active().clips, before);
+        assert!(editor.undo());
+        assert_eq!(editor.project().active().clips, before);
+        let nothing = editor
+            .apply(Command::RemoveSpans {
+                spans: vec![(30.0, 40.0)],
+                track_ids: Vec::new(),
+            })
+            .expect("tolerated");
+        assert!(!nothing.applied);
+        assert!(
+            editor
+                .apply(Command::RemoveSpans {
+                    spans: vec![(1.0, f64::NAN)],
+                    track_ids: Vec::new(),
+                })
+                .is_err()
         );
     }
 }

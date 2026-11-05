@@ -379,46 +379,23 @@ pub(super) fn apply(
                 let Some(index) = timeline.clips.iter().position(|clip| clip.id == clip_id) else {
                     continue;
                 };
-                let clip: &Clip = &timeline.clips[index];
-                let offset = time - clip.start;
-                if offset <= MIN_CLIP_DURATION || offset >= clip.duration - MIN_CLIP_DURATION {
-                    continue;
+                if let Some(id) = split_at(timeline, mint, index, time) {
+                    created = Some(id);
                 }
-                let (head_source, mut tail_source) =
-                    split_source(clip.source_start, clip.speed, offset);
-                let whole = clip.duration;
-                let mut tail = clip.clone();
-                // Under a curve each half keeps its share of it, and the
-                // tail starts where the curve had got to in the source.
-                if let Some(consumed) = crate::speed::rewindow_clip(&mut tail, whole, offset, whole)
-                {
-                    tail_source = clip.source_start + consumed;
-                }
-                tail.id = mint.next("c");
-                tail.start = clip.start + offset;
-                tail.duration = clip.duration - offset;
-                tail.source_start = tail_source;
-                // The transition belongs to the cut at the original clip's
-                // start, which the head keeps; the way in belongs to the
-                // head and the way out to the tail, so neither piece plays
-                // an entrance or an exit the whole did not have at the cut.
-                tail.transition_in = None;
-                tail.fade_in = 0.0;
-                tail.rewindow_keys(whole, offset, whole);
-                created = Some(tail.id.clone());
-                let head = timeline.clip_at_mut(index);
-                crate::speed::rewindow_clip(head, whole, 0.0, offset);
-                head.duration = offset;
-                head.source_start = head_source;
-                head.fade_out = 0.0;
-                head.rewindow_keys(whole, 0.0, offset);
-                timeline.clips.insert(index + 1, Arc::new(tail));
             }
             // A split always mints the tail, so "minted anything" and
             // "changed anything" are the same fact here.
             let applied = created.is_some();
             Ok(Outcome {
                 created_id: created,
+                applied,
+            })
+        }
+
+        Command::RemoveSpans { spans, track_ids } => {
+            let applied = remove_spans(project.active_mut(), mint, &spans, &track_ids);
+            Ok(Outcome {
+                created_id: None,
                 applied,
             })
         }
@@ -763,6 +740,134 @@ pub(super) fn apply(
 
 /// How far apart two clips may sit and still count as touching, in seconds.
 const JOIN_EPSILON: f64 = 1e-6;
+
+/// Cuts the clip at `index` in two at timeline `time`, the way
+/// [`Command::SplitClips`] does: the head keeps the id and the transition,
+/// the tail is minted fresh, inserted right after the head, and stays
+/// source-continuous. Returns the tail's id, or None when the time misses
+/// the clip or grazes either end within the minimum duration.
+fn split_at(timeline: &mut Timeline, mint: &mut IdMint, index: usize, time: f64) -> Option<String> {
+    let clip: &Clip = &timeline.clips[index];
+    let offset = time - clip.start;
+    if offset <= MIN_CLIP_DURATION || offset >= clip.duration - MIN_CLIP_DURATION {
+        return None;
+    }
+    let (head_source, mut tail_source) = split_source(clip.source_start, clip.speed, offset);
+    let whole = clip.duration;
+    let mut tail = clip.clone();
+    // Under a curve each half keeps its share of it, and the
+    // tail starts where the curve had got to in the source.
+    if let Some(consumed) = crate::speed::rewindow_clip(&mut tail, whole, offset, whole) {
+        tail_source = clip.source_start + consumed;
+    }
+    tail.id = mint.next("c");
+    tail.start = clip.start + offset;
+    tail.duration = clip.duration - offset;
+    tail.source_start = tail_source;
+    // The transition belongs to the cut at the original clip's
+    // start, which the head keeps; the way in belongs to the
+    // head and the way out to the tail, so neither piece plays
+    // an entrance or an exit the whole did not have at the cut.
+    tail.transition_in = None;
+    tail.fade_in = 0.0;
+    tail.rewindow_keys(whole, offset, whole);
+    let created = tail.id.clone();
+    let head = timeline.clip_at_mut(index);
+    crate::speed::rewindow_clip(head, whole, 0.0, offset);
+    head.duration = offset;
+    head.source_start = head_source;
+    head.fade_out = 0.0;
+    head.rewindow_keys(whole, 0.0, offset);
+    timeline.clips.insert(index + 1, Arc::new(tail));
+    Some(created)
+}
+
+/// The body of [`Command::RemoveSpans`] on one timeline. Returns whether
+/// anything changed.
+fn remove_spans(
+    timeline: &mut Timeline,
+    mint: &mut IdMint,
+    spans: &[(f64, f64)],
+    track_ids: &[String],
+) -> bool {
+    let spans: Vec<(f64, f64)> = spans
+        .iter()
+        .map(|&(start, end)| (start.max(0.0), end))
+        .collect();
+    let spans = crate::smart_cut::merge_spans(&spans);
+    if spans.is_empty() {
+        return false;
+    }
+    let wanted: HashSet<&str> = track_ids.iter().map(String::as_str).collect();
+    let on_track = |clip: &Clip| wanted.is_empty() || wanted.contains(clip.track_id.as_str());
+    let frame = {
+        let video = timeline.video;
+        if video.rate_num > 0 && video.rate_den > 0 {
+            video.rate_den as f64 / video.rate_num as f64
+        } else {
+            1.0 / 30.0
+        }
+    };
+    let before = timeline.clips.clone();
+    // Last span first, so the times of the spans still to come are not
+    // moved by the ripple of the ones already taken out.
+    for &(start, end) in spans.iter().rev() {
+        let span = [(start, end)];
+        // Media: cut at both ends of the span, then drop what lies inside.
+        for cut in [end, start] {
+            let mut index = 0;
+            while index < timeline.clips.len() {
+                let clip = &timeline.clips[index];
+                if on_track(clip)
+                    && is_media(clip.kind)
+                    && clip.start < cut
+                    && clip.start + clip.duration > cut
+                {
+                    split_at(timeline, mint, index, cut);
+                }
+                index += 1;
+            }
+        }
+        timeline.clips.retain(|clip| {
+            let middle = clip.start + clip.duration / 2.0;
+            !(on_track(clip) && is_media(clip.kind) && middle > start && middle < end)
+        });
+        // Everything else shrinks by the part of the span it covered; a
+        // piece left shorter than a frame goes. Then the lane closes up.
+        let mut doomed: HashSet<String> = HashSet::new();
+        for clip in
+            timeline.clips_where(|clip| on_track(clip) && clip.start + clip.duration > start)
+        {
+            let new_start = crate::smart_cut::ripple_time(clip.start, &span);
+            if is_media(clip.kind) {
+                clip.start = new_start;
+                continue;
+            }
+            let new_end = crate::smart_cut::ripple_time(clip.start + clip.duration, &span);
+            if new_end - new_start < frame - JOIN_EPSILON {
+                doomed.insert(clip.id.clone());
+                continue;
+            }
+            clip.start = new_start;
+            clip.duration = new_end - new_start;
+        }
+        if !doomed.is_empty() {
+            timeline.clips.retain(|clip| !doomed.contains(&clip.id));
+        }
+    }
+    timeline.clips.len() != before.len()
+        || timeline
+            .clips
+            .iter()
+            .zip(&before)
+            .any(|(now, was)| !Arc::ptr_eq(now, was) && **now != **was)
+}
+
+/// True for the clips cut out of a media file - picture or sound - which
+/// [`Command::RemoveSpans`] splits rather than shrinks.
+fn is_media(kind: ClipKind) -> bool {
+    matches!(kind, ClipKind::Video | ClipKind::Audio)
+}
 
 /// The ripple of a delete: pulls every clip that sits after a removed
 /// span left by the length of the removed spans before it, on that clip's
