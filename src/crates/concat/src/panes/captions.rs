@@ -717,11 +717,12 @@ impl CaptionsPane {
         if !self.open && !self.shown {
             return Vec::new();
         }
+        let language = crate::i18n::current();
         if self.english_only(studio) {
-            return vec![ENGLISH.into()];
+            return vec![shown_name("en", ENGLISH, &language).into()];
         }
         std::iter::once(t("captions.autoDetect").into())
-            .chain(language_list().map(|(_, name)| name.into()))
+            .chain(language_list().map(|(code, name)| shown_name(code, name, &language).into()))
             .collect()
     }
 
@@ -776,15 +777,11 @@ impl CaptionsPane {
 }
 
 /// The language a transcription is asked for: the one picked on the
-/// sheet, or with none picked, the transcriber's to hear - except under an
-/// interface in Traditional Chinese, where Chinese is meant to be written
-/// in Traditional characters, and hearing it would write Simplified.
+/// sheet, or with none picked - "Auto-detect" - none, so the transcriber
+/// hears which language it is, whatever language the interface is in.
+/// Chinese in Traditional characters is its own row, picked like any other.
 fn request_language(picked: Option<&str>) -> Option<&str> {
-    match picked {
-        Some(code) => Some(code),
-        None if crate::i18n::current() == "zh-TW" => Some("zh-Hant"),
-        None => None,
-    }
+    picked
 }
 
 /// How the sheet's choices cut lines: the line as long as the choice says,
@@ -841,6 +838,124 @@ fn caption_lines_of(
 
 /// English, as the language list names it.
 const ENGLISH: &str = "English";
+
+/// A row of the language list as the sheet shows it: under a Simplified
+/// Chinese interface, the language's Chinese name, so a list of ninety-odd
+/// languages reads in the interface's words; under any other, its own name.
+/// The two Chinese rows keep theirs, which say which characters they write.
+fn shown_name(code: &str, own: &str, interface: &str) -> String {
+    if interface == "zh-Hans"
+        && !code.starts_with("zh")
+        && let Some((_, chinese)) = ZH_HANS_NAMES.iter().find(|(known, _)| *known == code)
+    {
+        return (*chinese).to_owned();
+    }
+    own.to_owned()
+}
+
+/// Whisper's languages by their names in Simplified Chinese.
+pub(crate) const ZH_HANS_NAMES: &[(&str, &str)] = &[
+    ("af", "南非荷兰语"),
+    ("az", "阿塞拜疆语"),
+    ("id", "印度尼西亚语"),
+    ("ms", "马来语"),
+    ("jw", "爪哇语"),
+    ("su", "巽他语"),
+    ("bs", "波斯尼亚语"),
+    ("br", "布列塔尼语"),
+    ("ca", "加泰罗尼亚语"),
+    ("cs", "捷克语"),
+    ("sn", "绍纳语"),
+    ("cy", "威尔士语"),
+    ("da", "丹麦语"),
+    ("de", "德语"),
+    ("et", "爱沙尼亚语"),
+    ("en", "英语"),
+    ("es", "西班牙语"),
+    ("eu", "巴斯克语"),
+    ("fo", "法罗语"),
+    ("fr", "法语"),
+    ("gl", "加利西亚语"),
+    ("ha", "豪萨语"),
+    ("hr", "克罗地亚语"),
+    ("is", "冰岛语"),
+    ("it", "意大利语"),
+    ("sw", "斯瓦希里语"),
+    ("ht", "海地克里奥尔语"),
+    ("la", "拉丁语"),
+    ("lv", "拉脱维亚语"),
+    ("lb", "卢森堡语"),
+    ("lt", "立陶宛语"),
+    ("ln", "林加拉语"),
+    ("hu", "匈牙利语"),
+    ("mg", "马达加斯加语"),
+    ("mt", "马耳他语"),
+    ("mi", "毛利语"),
+    ("nl", "荷兰语"),
+    ("no", "挪威语（书面）"),
+    ("nn", "挪威语（新挪威语）"),
+    ("oc", "奥克语"),
+    ("haw", "夏威夷语"),
+    ("uz", "乌兹别克语"),
+    ("pl", "波兰语"),
+    ("pt", "葡萄牙语"),
+    ("ro", "罗马尼亚语"),
+    ("sq", "阿尔巴尼亚语"),
+    ("sk", "斯洛伐克语"),
+    ("sl", "斯洛文尼亚语"),
+    ("so", "索马里语"),
+    ("fi", "芬兰语"),
+    ("sv", "瑞典语"),
+    ("tl", "他加禄语"),
+    ("vi", "越南语"),
+    ("tr", "土耳其语"),
+    ("tk", "土库曼语"),
+    ("yo", "约鲁巴语"),
+    ("el", "希腊语"),
+    ("ba", "巴什基尔语"),
+    ("be", "白俄罗斯语"),
+    ("bg", "保加利亚语"),
+    ("kk", "哈萨克语"),
+    ("mk", "马其顿语"),
+    ("mn", "蒙古语"),
+    ("ru", "俄语"),
+    ("sr", "塞尔维亚语"),
+    ("tt", "鞑靼语"),
+    ("tg", "塔吉克语"),
+    ("uk", "乌克兰语"),
+    ("hy", "亚美尼亚语"),
+    ("yi", "意第绪语"),
+    ("he", "希伯来语"),
+    ("ur", "乌尔都语"),
+    ("ar", "阿拉伯语"),
+    ("sd", "信德语"),
+    ("fa", "波斯语"),
+    ("ps", "普什图语"),
+    ("ne", "尼泊尔语"),
+    ("mr", "马拉地语"),
+    ("sa", "梵语"),
+    ("hi", "印地语"),
+    ("as", "阿萨姆语"),
+    ("bn", "孟加拉语"),
+    ("pa", "旁遮普语"),
+    ("gu", "古吉拉特语"),
+    ("ta", "泰米尔语"),
+    ("te", "泰卢固语"),
+    ("kn", "卡纳达语"),
+    ("ml", "马拉雅拉姆语"),
+    ("si", "僧伽罗语"),
+    ("th", "泰语"),
+    ("lo", "老挝语"),
+    ("bo", "藏语"),
+    ("my", "缅甸语"),
+    ("ka", "格鲁吉亚语"),
+    ("ko", "韩语"),
+    ("am", "阿姆哈拉语"),
+    ("km", "高棉语"),
+    ("zh", "中文"),
+    ("ja", "日语"),
+    ("yue", "粤语"),
+];
 
 /// Chinese written in Traditional characters: to whisper it is Chinese,
 /// and the transcriber prompts it in the characters asked for.
@@ -1327,6 +1442,45 @@ mod tests {
             Some("zh-Hant")
         );
         assert_eq!(super::request_language(Some("zh-Hant")), Some("zh-Hant"));
+        assert_eq!(super::request_language(Some("zh")), Some("zh"));
+    }
+
+    /// "Auto-detect" asks for no language whatever the interface is in:
+    /// a Traditional Chinese interface no longer turns it into Traditional
+    /// characters, and the Simplified one does not turn it into anything.
+    #[test]
+    fn auto_detect_hears_the_language_under_any_interface() {
+        let _language = crate::i18n::language_lock();
+        let root =
+            std::env::temp_dir().join(format!("concat-captions-auto-{}", std::process::id()));
+        let dirs = concat_host::AppDirs::under(&root);
+        for code in ["zh-TW", "zh-Hans", "en"] {
+            crate::i18n::select(code, &dirs);
+            assert_eq!(super::request_language(None), None, "under {code}");
+        }
+        crate::i18n::select(crate::i18n::ENGLISH, &dirs);
+    }
+
+    /// Under a Simplified Chinese interface every language of the list
+    /// reads by its Chinese name, and the two Chinese rows by their own.
+    #[test]
+    fn the_language_list_reads_in_chinese_under_a_chinese_interface() {
+        for (code, own) in super::language_list() {
+            let shown = super::shown_name(code, own, "zh-Hans");
+            assert!(
+                shown
+                    .chars()
+                    .any(|c| ('\u{4e00}'..='\u{9fff}').contains(&c)),
+                "{code} reads {shown:?}"
+            );
+            assert_eq!(super::shown_name(code, own, "en"), own);
+        }
+        assert_eq!(super::shown_name("en", "English", "zh-Hans"), "英语");
+        assert_eq!(
+            super::shown_name("zh-Hant", "繁體中文", "zh-Hans"),
+            "繁體中文"
+        );
+        assert_eq!(super::shown_name("zh", "简体中文", "zh-Hans"), "简体中文");
     }
 
     #[test]
