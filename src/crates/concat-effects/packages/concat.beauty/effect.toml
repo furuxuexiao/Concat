@@ -25,16 +25,20 @@ description = "Skin smoothed and brightened: pores and small, separate spots eve
 # of five-pixel spots with centres seven pixels apart is taken most of the
 # way out at the default. A larger spot, or spots that touch, may read as
 # a patch and be left largely as it is or evened only in part, sometimes
-# keeping its rim round an evened middle; it never ends up standing out
-# more than a quarter further than it did, or nearly half as far again at
-# full Whiten, which lifts the skin round a red spot it keeps. A brown
+# keeping its rim round an evened middle. Measured on spots seven to
+# sixteen pixels across, at 1080 lines and drawn twice as large at 2160,
+# from a Smooth of 25 to the most, the worst - a red spot ten pixels
+# across - came out standing 1.13 times as far from the skin round it as
+# it had at a Whiten of 30, and 1.40 times at full Whiten, which lifts the
+# skin round a red spot it keeps; the tests hold it to 1.25 and 1.45. A brown
 # texture the colour of skin with no line to it, like the body of a head
 # of hair, is softened with skin at high settings. Whiten lifts and
 # slightly calms skin; a ruddy cheek, the hue of lips, only lightly, so
 # lips keep their colour; a spot Smooth has filled is whitened as the skin
 # it now is. Dark complexions in ordinary light are smoothed like any
 # other; only skin in deep shadow is left. A pixel that is not a finite
-# number is passed through untouched and never spreads. Both are percents from
+# number is passed through untouched and spreads no further than its
+# eight neighbours, which the renderer's own read reaches. Both are percents from
 # nothing; at 0 the picture is as shot, and Smooth eases in, taking most
 # of the texture out by its default.
 

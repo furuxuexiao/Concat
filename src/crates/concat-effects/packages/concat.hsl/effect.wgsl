@@ -44,7 +44,9 @@ fn finite(c: vec4<f32>) -> bool {
 // luminance are those of the encoded colour, which is what a grading panel
 // shows.
 //
-// A pixel that is not a finite number is passed through untouched.
+// A pixel that is not a finite number is passed through untouched, and
+// spreads no further than its eight neighbours, which the renderer's own
+// read reaches.
 fn effect(uv: vec2<f32>) -> vec4<f32> {
     let c = sample(uv);
     if (!finite(c)) {

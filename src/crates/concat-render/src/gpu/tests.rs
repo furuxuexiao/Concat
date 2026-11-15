@@ -3275,14 +3275,18 @@ fn beauty_upright_frame_is_smoothed_as_one_on_its_side() {
 }
 
 /// A pixel that is not a number, or is infinite, in skin or in its alpha,
-/// at the default and the most, spreads no further than the renderer's own
-/// reading of the picture carries it: every pixel outside the three by
-/// three block round it comes out finite, and within 0.01 of where it does
-/// with that pixel transparent. (The block itself is the renderer's: a
-/// filtered read at a pixel's centre, which every package's `sample` and
-/// the mix by intensity make, can carry a pixel that is not a number into
-/// its eight neighbours whatever the package does; Beauty's own reads,
-/// seven pixels and more each way, no longer widen it.)
+/// at the default and the most, spreads no further than its eight
+/// neighbours, which the renderer's own read reaches: every pixel outside
+/// the three by three block round it comes out finite, and within 0.01 of
+/// where it does with that pixel transparent. (The block itself is the
+/// renderer's: the mix by intensity reads the layer filtered at the
+/// pixel's centre, which can carry a pixel that is not a number into its
+/// eight neighbours whatever the package does - on the test device the
+/// three before it, up and to the left. Beauty reads its own pixel whole
+/// and every other pixel as transparent if it is not finite, so its own
+/// reads, seven pixels and more each way, do not widen it.) A bad alpha
+/// alone, which that mix carries nowhere, stays in its own pixel: all
+/// eight neighbours come out so too.
 #[test]
 fn beauty_keeps_a_bad_pixel_to_itself() {
     let Some(mut gpu) = heavy_gpu() else { return };
@@ -3299,10 +3303,17 @@ fn beauty_keeps_a_bad_pixel_to_itself() {
             let got = beautified_with(&mut gpu, size, &field(bad), smoothing, whiten);
             let clear = beautified_with(&mut gpu, size, &field([0.0; 4]), smoothing, whiten);
             let tag = format!("{bad:?} at {smoothing}, whiten {whiten}");
+            // A bad alpha alone the renderer's read carries nowhere, so only
+            // its own pixel is let off.
+            let reach = if bad[..3].iter().all(|c| c.is_finite()) {
+                0
+            } else {
+                1
+            };
             let mut worst = 0.0f32;
             for (i, px) in got.iter().enumerate() {
                 let (x, y) = (i % 64, i / 64);
-                if x.abs_diff(32) <= 1 && y.abs_diff(32) <= 1 {
+                if x.abs_diff(32) <= reach && y.abs_diff(32) <= reach {
                     continue;
                 }
                 assert!(px.iter().all(|c| c.is_finite()), "{tag}: {px:?} at {i}");
@@ -3368,30 +3379,38 @@ fn hsl_passes_a_bad_pixel_by() {
 
 /// Hair on a layer that is not opaque is told as on an opaque one: a light
 /// and a dark brown strand a pixel wide and a two pixel one across skin
-/// that is opaque, half transparent throughout, or fading from opaque to a
-/// quarter across the strands, keep at least 85% of how far they stand
-/// from the skin in straight colour, at the default and at the most.
+/// that is opaque, half transparent throughout, fading from opaque to a
+/// quarter along the strands, or fading so down the rows, across them -
+/// each strand less opaque than the skin above it and more than the skin
+/// below - keep at least 85% of how far they stand from the skin in
+/// straight colour, at the default and at the most.
 #[test]
 fn beauty_keeps_hair_on_a_layer_not_opaque() {
     let Some(mut gpu) = heavy_gpu() else { return };
     let size = (64, 1080);
     let light = lit([0.55, 0.38, 0.28]);
     let brown = lit([0.45, 0.28, 0.20]);
-    // The alpha of column `x` of each layer.
-    let alpha = |name: &str, x: u32| match name {
+    // The alpha of pixel (`x`, `y`) of each layer.
+    let alpha = |name: &str, x: u32, y: u32| match name {
         "opaque" => 1.0,
         "half transparent" => 0.5,
-        _ => (1.0 - (x as f32 - 16.0) / 32.0 * 0.75).clamp(0.25, 1.0),
+        "fading along" => (1.0 - (x as f32 - 16.0) / 32.0 * 0.75).clamp(0.25, 1.0),
+        _ => (1.0 - (y as f32 - 16.0) / 32.0 * 0.75).clamp(0.25, 1.0),
     };
     let mut failures = Vec::new();
-    for name in ["opaque", "half transparent", "fading"] {
+    for name in [
+        "opaque",
+        "half transparent",
+        "fading along",
+        "fading across",
+    ] {
         let mut picture = skin_field(size, 1, |_, y| match y {
             20 => Some(light),
             30 | 40 | 41 => Some(brown),
             _ => None,
         });
         for (i, px) in picture.iter_mut().enumerate() {
-            px[3] = alpha(name, i as u32 % 64);
+            px[3] = alpha(name, i as u32 % 64, i as u32 / 64);
         }
         let lu = |p: [f32; 4]| {
             let d = shown(p);
@@ -3643,6 +3662,86 @@ fn beauty_keeps_a_fading_edge_clean() {
                         "{smoothing}: what lies beyond reached {x},{y}: {drift}"
                     );
                 }
+            }
+        }
+    }
+}
+
+/// Hair running into a hard edge of the layer, opaque or half transparent
+/// up to it and fully transparent beyond: the frame comes out the same
+/// whether the transparent pixels beyond hold junk - a green far past
+/// white - or the picture as it would go on, strands and all, so nothing
+/// of what cannot be seen reaches a strand or the skin beside it however
+/// close it lies to the edge (a straight read between a strand's last
+/// pixel and the junk past it would tell the strand from itself), every
+/// alpha comes out as it went in, and the strands keep at least 85% of how
+/// far they stand from the skin right up to the edge.
+#[test]
+fn beauty_keeps_hair_at_a_hard_edge_clean() {
+    let Some(mut gpu) = heavy_gpu() else { return };
+    let size = (64, 1080);
+    let light = lit([0.55, 0.38, 0.28]);
+    let brown = lit([0.45, 0.28, 0.20]);
+    let lu = |p: [f32; 4]| {
+        let d = shown(p);
+        0.2126 * d[0] + 0.7152 * d[1] + 0.0722 * d[2]
+    };
+    let hair = skin_field(size, 1, |_, y| match y {
+        20 => Some(light),
+        30 | 40 | 41 => Some(brown),
+        _ => None,
+    });
+    for opacity in [1.0f32, 0.5] {
+        let edge = |junk: Option<[f32; 4]>| {
+            let mut picture = hair.clone();
+            for (i, px) in picture.iter_mut().enumerate() {
+                if i % 64 < 40 {
+                    px[3] = opacity;
+                } else {
+                    *px = junk.unwrap_or([px[0], px[1], px[2], 0.0]);
+                }
+            }
+            picture
+        };
+        let junk = edge(Some([0.0, 5.0, 0.0, 0.0]));
+        let clean = edge(None);
+        for smoothing in [50.0, 100.0] {
+            let tag = format!("opacity {opacity}, smoothing {smoothing}");
+            let a = beautified(&mut gpu, size, &junk, smoothing);
+            let b = beautified(&mut gpu, size, &clean, smoothing);
+            let mut worst = 0.0f32;
+            for y in 8..64 {
+                for x in 0..64 {
+                    let i = (y * 64 + x) as usize;
+                    assert!(
+                        (a[i][3] - junk[i][3]).abs() < 1e-3,
+                        "{tag}: alpha changed at {x},{y}"
+                    );
+                    if junk[i][3] > 0.0 {
+                        worst = worst.max(moved(a[i], b[i]));
+                    }
+                }
+            }
+            eprintln!("{tag}: junk beyond moved what shows by {worst:.6}");
+            assert!(
+                worst < 1e-3,
+                "{tag}: what lies beyond reached in by {worst}"
+            );
+            for (strand, row, above, below) in [
+                ("a light brown strand", 20u32, 17u32, 23u32),
+                ("a brown strand", 30, 27, 33),
+                ("a two pixel brown strand", 40, 37, 44),
+            ] {
+                let mut least = f32::MAX;
+                for x in 30..40u32 {
+                    let at = |frame: &[[f32; 4]], y: u32| lu(frame[(y * 64 + x) as usize]);
+                    let stands = |frame: &[[f32; 4]]| {
+                        (at(frame, above) + at(frame, below)) / 2.0 - at(frame, row)
+                    };
+                    least = least.min(stands(&a) / stands(&junk));
+                }
+                eprintln!("{tag}: {strand} keeps {least:.3} up to the edge");
+                assert!(least >= 0.85, "{tag}: {strand} kept {least} up to the edge");
             }
         }
     }
@@ -3994,6 +4093,12 @@ fn beauty_takes_spots_in_a_cluster() {
 /// than a quarter further than it did (whiten lifting the skin round it),
 /// or 0.45 further at full whiten, and it leaves no halo (0.04 in the
 /// display encoding).
+///
+/// A regression guard, not a target: the worst measured at the time of
+/// writing - a ten pixel red spot at 1080 lines - stands 1.132 times as far
+/// at whiten 30 and 1.399 times at full whiten (the figures the package's
+/// description gives), so a change that moves either towards its bound
+/// has made large spots worse.
 #[test]
 fn beauty_leaves_large_spots_whole() {
     let Some(mut gpu) = heavy_gpu() else { return };

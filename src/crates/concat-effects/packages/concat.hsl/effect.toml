@@ -37,7 +37,8 @@ description = "Eight bands of colour, each turned, saturated and brightened on i
 # it sits to each: a band's sliders carry their whole weight at its own
 # centre and none at its neighbours', so the hand-over has no seam.
 # Greys are left alone, and a pixel that is not a finite number is
-# passed through untouched.
+# passed through untouched and spreads no further than its eight
+# neighbours, which the renderer's own read reaches.
 
 [[param]]
 key = "red_hue"

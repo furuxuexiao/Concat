@@ -186,18 +186,21 @@ def picture(img, smoothing, w, frame=None):
         return shown[np.clip(iy, 0, fh - 1), np.clip(ix, 0, fw - 1)]
 
     def level(px, py):
-        # The hardware filters the texture in light, then it is encoded.
+        # Each of the four pixels round the point is encoded and
+        # premultiplied by its alpha (held to 0..1) on its own, a pixel that
+        # is not finite counting as transparent, and only then mixed.
         x, y = px - 0.5, py - 0.5
         x0, y0 = np.floor(x).astype(int), np.floor(y).astype(int)
-        fx, fy = (x - x0)[..., None], (y - y0)[..., None]
-
-        def at(a, b):
-            return full[np.clip(b, 0, fh - 1), np.clip(a, 0, fw - 1)]
-
-        v = (at(x0, y0) * (1 - fx) * (1 - fy) + at(x0 + 1, y0) * fx * (1 - fy)
-             + at(x0, y0 + 1) * (1 - fx) * fy + at(x0 + 1, y0 + 1) * fx * fy)
-        a = np.clip(v[..., 3], 0, 1)
-        return disp(v[..., :3]) * a[..., None], a
+        fx, fy = x - x0, y - y0
+        rgb, alpha = np.zeros(px.shape + (3,)), np.zeros(px.shape)
+        for dx, dy, w in [(0, 0, (1 - fx) * (1 - fy)), (1, 0, fx * (1 - fy)),
+                          (0, 1, (1 - fx) * fy), (1, 1, fx * fy)]:
+            t = load(x0 + dx, y0 + dy)
+            ok = np.isfinite(t).all(-1)
+            a = np.where(ok, np.clip(t[..., 3], 0, 1), 0.0)
+            rgb += np.where(ok[..., None], t[..., :3], 0.0) * (a * w)[..., None]
+            alpha += a * w
+        return rgb, alpha
 
     ys, xs = np.mgrid[0:h_, 0:w_]
     cx, cy = xs + 0.5, ys + 0.5

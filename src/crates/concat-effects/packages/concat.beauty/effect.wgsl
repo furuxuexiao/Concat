@@ -30,28 +30,49 @@ fn skins_at(rgb: vec3<f32>, h: f32) -> vec2<f32> {
 }
 
 // Whether every channel of `c` is a number and finite: a pixel that is not
-// is read as transparent, so one bad pixel never spreads to its neighbours.
+// is read as transparent by every read of Beauty's own.
 fn finite(c: vec4<f32>) -> bool {
     let exponent = bitcast<vec4<u32>>(c) & vec4<u32>(0x7f800000u);
     return all(exponent != vec4<u32>(0x7f800000u));
 }
 
-// The layer's colour at `uv`, between pixels, read at the full-size level
-// without derivatives, so a branch on what the pixel holds may read it -
-// premultiplied by its alpha (held to 0..1), which is handed back beside
-// it, so what a transparent pixel holds counts for nothing. A reading with
-// a bad pixel in it reads as transparent.
+// The layer's colour at `uv`, between pixels, as `sample_premultiplied`
+// reads it: each of the four whole pixels round it is read on its own,
+// premultiplied by its alpha (held to 0..1) and only then mixed, and the
+// mix is handed back premultiplied with its alpha beside it. So what a
+// transparent pixel holds counts for nothing even across a hard edge, and
+// a pixel that is not a finite number counts as transparent while the
+// three beside it still count. Read without a sampler, so a branch on what
+// the pixel holds may read it.
 fn level(uv: vec2<f32>) -> vec4<f32> {
-    let c = into_space(textureSampleLevel(source, source_sampler, uv, 0.0));
-    let a = clamp(c.a, 0.0, 1.0);
-    return select(vec4<f32>(0.0), vec4<f32>(c.rgb * a, a), finite(c));
+    let p = uv * frame.size - vec2<f32>(0.5);
+    let f = fract(p);
+    let first = vec2<i32>(floor(p));
+    let last = vec2<i32>(frame.size) - vec2<i32>(1);
+    var mixed = vec4<f32>(0.0);
+    for (var y = 0; y < 2; y++) {
+        for (var x = 0; x < 2; x++) {
+            let at = clamp(first + vec2<i32>(x, y), vec2<i32>(0), last);
+            let t = into_space(textureLoad(source, at, 0));
+            let a = clamp(t.a, 0.0, 1.0);
+            let w = select(1.0 - f.x, f.x, x == 1) * select(1.0 - f.y, f.y, y == 1);
+            mixed += select(vec4<f32>(0.0), vec4<f32>(t.rgb * a, a), finite(t)) * w;
+        }
+    }
+    return mixed;
+}
+
+// The layer's colour at whole pixel `at`, clamped to the layer, as the
+// texture holds it: not a number, out of range or not.
+fn stored(at: vec2<f32>) -> vec4<f32> {
+    let last = vec2<i32>(frame.size) - vec2<i32>(1);
+    return into_space(textureLoad(source, clamp(vec2<i32>(floor(at)), vec2<i32>(0), last), 0));
 }
 
 // The layer's colour at whole pixel `at`, clamped to the layer, its alpha
 // held to 0..1; a pixel that is not a finite number reads as transparent.
 fn pixel(at: vec2<f32>) -> vec4<f32> {
-    let last = vec2<i32>(frame.size) - vec2<i32>(1);
-    let c = into_space(textureLoad(source, clamp(vec2<i32>(floor(at)), vec2<i32>(0), last), 0));
+    let c = stored(at);
     return select(vec4<f32>(0.0), vec4<f32>(c.rgb, clamp(c.a, 0.0, 1.0)), finite(c));
 }
 
@@ -72,6 +93,12 @@ fn lines() -> f32 {
 // fading edge, is told as on an opaque one, while a transparent neighbour
 // differs by nothing and never draws a line.
 fn on_line(uv: vec2<f32>, y0: f32, alpha: f32) -> f32 {
+    // Never under a pixel and a half, though the grid below follows the
+    // frame down to 0.4: a hair is at least a pixel wide however small the
+    // frame, so a shorter reach would read the neighbours partly off the
+    // hair itself and tell it from nothing, while the grid's reach is a
+    // share of a face, which shrinks with the frame, and at 0.4 its step of
+    // 1.4 pixels still lands every tap past the pixel's own.
     let t = texel() * 1.5 * max(lines(), 1.0);
     let opacity = max(alpha, 1e-3);
     // Read without derivatives, so the reading may turn on the pixel.
@@ -178,14 +205,19 @@ fn own_kind(tap: vec4<f32>, y0: f32, tint0: vec3<f32>) -> f32 {
 // as shot, though a lone one inside skin is filled like a spot.
 //
 // Not a number. A pixel that is not a finite number is passed through
-// untouched, and read by its neighbours as transparent, so it never
-// spreads.
+// untouched, and every read of Beauty's own - its own pixel read whole,
+// the line test's and the grid's - takes it as transparent, so it spreads
+// no further than its eight neighbours, which the renderer's own read
+// reaches.
 //
-// Cost. 41 texture reads for a pixel of skin or of a warm colour, one for any
-// other; a pixel that may be a blemish - unlike the skin round it - reads up
-// to 104 more to follow its shape.
+// Cost. 89 texture reads for a pixel of skin or of a warm colour - its own,
+// four for each of the line test's sixteen readings between pixels, one
+// for each grid tap - one for any other; a pixel that may be a blemish -
+// unlike the skin round it - reads up to 104 more to follow its shape.
 fn effect(uv: vec2<f32>) -> vec4<f32> {
-    let c = sample(uv);
+    // The pixel's own colour, read whole, so no read of Beauty's own
+    // reaches a neighbour's.
+    let c = stored(uv * frame.size);
     if (!finite(c)) {
         return c;
     }
