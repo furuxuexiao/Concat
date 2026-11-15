@@ -21,19 +21,35 @@ fn from_hsv(hsv: vec3<f32>) -> vec3<f32> {
     return hsv.z * mix(vec3<f32>(1.0), ramp, hsv.y);
 }
 
+// Whether every channel of `c` is a number and finite.
+fn finite(c: vec4<f32>) -> bool {
+    let exponent = bitcast<vec4<u32>>(c) & vec4<u32>(0x7f800000u);
+    return all(exponent != vec4<u32>(0x7f800000u));
+}
+
 // Each band's sliders, weighted between the two centres a hue sits
 // between: all of one band at its centre, none at its neighbours', so the
 // weights always sum to one and no hue is moved by more than two bands.
 // Saturation and luminance hand over along a smoothstep. Hue hands over
-// in a straight line, and two neighbours turned far apart are scaled back
-// together until the turn can no longer fold a colour past the one beside
-// it: the wheel is only ever stretched or squeezed, never reversed. The
-// move fades out below a chroma of 0.15 - absolute, not relative to
-// brightness, so the near-black noise of a shadow is left alone too, and
-// a muted colour such as dim foliage or a shadowed sky takes only part of
-// the move - and a grey stays grey.
+// in a straight line, and two neighbours - the one before turned past the
+// one after far enough to fold a colour past the one beside it - are scaled
+// back together until they no longer can: the wheel is only ever stretched or squeezed,
+// never reversed. The move fades out below a chroma of 0.15 - absolute, not
+// relative to brightness, so the near-black noise of a shadow is left alone
+// too, and a muted colour such as dim foliage or a shadowed sky takes only
+// part of the move - and a grey stays grey.
+//
+// Everything here is read in the display encoding (the package's `space`),
+// the picture as it is seen, not linear light: hue, saturation, chroma and
+// luminance are those of the encoded colour, which is what a grading panel
+// shows.
+//
+// A pixel that is not a finite number is passed through untouched.
 fn effect(uv: vec2<f32>) -> vec4<f32> {
     let c = sample(uv);
+    if (!finite(c)) {
+        return c;
+    }
     let rgb = max(c.rgb, vec3<f32>(0.0));
     let value = max(max(rgb.r, rgb.g), rgb.b);
     let chroma = chroma_of(rgb);
@@ -69,14 +85,18 @@ fn effect(uv: vec2<f32>) -> vec4<f32> {
     let gate = smoothstep(0.0, 0.15, chroma);
     // Up to 30 degrees each way; plus turns towards the next band round
     // the wheel (red to orange, blue to purple), minus towards the one
-    // before. Two neighbours whose turns differ by more than 0.8 of the
-    // gap between their centres are eased back, both by the same share,
-    // so that pair comes back within the gap - at most about 0.87 of it
-    // when three bands are turned in a chain, 0.8 for a pair alone - so a
-    // band 30 degrees from its neighbour turns at most 24 while that
-    // neighbour rests. A hue between
-    // them then still moves forward as its input does, and each share is
-    // the band's own, so the turn is continuous across every centre.
+    // before. Between two neighbours the turn hands over in a straight
+    // line, so the colours between them fold back only if the band before
+    // is turned further forward than the band after by more than the gap
+    // between their centres. Where it is by more than 0.8 of the gap, both
+    // are eased back by the same share, so that pair comes back within the
+    // gap - at most about 0.87 of it when three bands are turned in a chain,
+    // 0.8 for a pair alone. So a band 30 degrees from its neighbour turns at
+    // most 24 towards it while that neighbour rests, and the full 30 away
+    // from it; two neighbours turned apart, stretching the colours between
+    // them, are never eased. A hue between them then still moves forward as
+    // its input does, and each share is the band's own, so the turn is
+    // continuous across every centre.
     var turns = array<f32, 8>();
     for (var n = 0; n < 8; n++) {
         turns[n] = hues[n] * 0.3;
@@ -85,9 +105,11 @@ fn effect(uv: vec2<f32>) -> vec4<f32> {
     for (var n = 0; n < 8; n++) {
         let m = (n + 1) % 8;
         let gap = select(centres[m], centres[m] + 360.0, m == 0) - centres[n];
-        let apart = abs(turns[m] - turns[n]);
-        if (apart > gap * 0.8) {
-            let share = gap * 0.8 / apart;
+        // How far the band before is turned past the band after: what
+        // squeezes the colours between them, and past the gap folds them.
+        let squeeze = turns[n] - turns[m];
+        if (squeeze > gap * 0.8) {
+            let share = gap * 0.8 / squeeze;
             shares[n] = min(shares[n], share);
             shares[m] = min(shares[m], share);
         }
