@@ -276,13 +276,9 @@ impl SettingsPane {
     pub fn update(&mut self, msg: SettingsMsg, studio: &mut Studio) {
         match msg {
             SettingsMsg::Restore => {
-                self.language = studio
-                    .languages
-                    .iter()
-                    .position(|language| {
-                        Some(language.code.as_str()) == studio.prefs.locale.as_deref()
-                    })
-                    .unwrap_or(0);
+                // The language picked, else the one the interface started
+                // in: Simplified Chinese, listed first.
+                self.language = i18n::row_of(&studio.languages, studio.prefs.locale.as_deref());
                 self.playhead_stops = studio.prefs.playhead_stops_at_end;
                 // Not a choice: the app decodes on whatever hardware the
                 // platform has, and a file the hardware will not take opens

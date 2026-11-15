@@ -13,10 +13,17 @@
 //! yet reads in English rather than as a key, and adding a language is
 //! adding a file.
 //!
-//! Only the app's own interface is translated. Effects, filters,
+//! Only the app's own interface is translated here. Effects, filters,
 //! transitions and text presets are data: a package's words are the
-//! English its manifest carries, shipped or not, and no locale lists them,
-//! so the locales stay the size of the interface.
+//! English its manifest carries, and no locale lists them, so the locales
+//! stay the size of the interface. A package carries its own translations
+//! instead, beside its English (`[i18n.zh-Hans]` in `effect.toml`, see
+//! `concat_effects::manifest::Words`), and the window asks for them in
+//! [`current`]'s language.
+//!
+//! This build starts in Simplified Chinese: [`DEFAULT`] is what the
+//! interface speaks until someone picks a language in Settings, and a
+//! language they picked is kept from then on.
 //!
 //! Two places hold locales. The ones the app ships live in `locales/` next
 //! to this crate's `src/` and are compiled in. Anyone can add or correct a
@@ -48,8 +55,32 @@ pub struct Language {
     pub name: String,
 }
 
-/// The code the interface starts in, and the language of the keys.
+/// The language of the keys, and what every locale falls back to.
 pub const ENGLISH: &str = "en";
+
+/// The code the interface starts in when nobody has picked a language:
+/// Simplified Chinese, on the desk and on a phone alike.
+pub const DEFAULT: &str = "zh-Hans";
+
+/// The language to start in: the one picked in Settings, else
+/// [`DEFAULT`]. A pick of English, or of any other language, is kept.
+pub fn startup(picked: Option<&str>) -> &str {
+    picked
+        .map(str::trim)
+        .filter(|code| !code.is_empty())
+        .unwrap_or(DEFAULT)
+}
+
+/// Where Settings' language list stands for `picked`: the language picked,
+/// else the one the interface started in, [`DEFAULT`]. The first row when
+/// neither is listed.
+pub fn row_of(languages: &[Language], picked: Option<&str>) -> usize {
+    let code = startup(picked);
+    languages
+        .iter()
+        .position(|language| language.code == code)
+        .unwrap_or(0)
+}
 
 /// The locales the app ships, as `(code, file)`. `en.json` is the
 /// inventory - every key, with its English - which is what a translator
@@ -141,16 +172,28 @@ pub fn user_dir(dirs: &AppDirs) -> std::path::PathBuf {
     dirs.config.join("locales")
 }
 
-/// Every language on offer: English, then the shipped locales, then any
-/// the machine adds, each once, by code. A machine's file for a shipped
-/// code renames it if its `_` entry says so.
+/// Every language on offer: [`DEFAULT`] first, as the one the interface
+/// starts in, then English, then the other shipped locales, then any the
+/// machine adds, each once, by code. A machine's file for a shipped code
+/// renames it if its `_` entry says so.
 pub fn languages(dirs: &AppDirs) -> Vec<Language> {
-    let mut out: Vec<Language> = vec![Language {
+    let mut out: Vec<Language> = Vec::new();
+    if let Some((name, _)) = BUILT_IN
+        .iter()
+        .find(|(code, _)| *code == DEFAULT)
+        .and_then(|(_, text)| parse(text))
+    {
+        out.push(Language {
+            code: DEFAULT.to_owned(),
+            name,
+        });
+    }
+    out.push(Language {
         code: ENGLISH.to_owned(),
         name: "English".to_owned(),
-    }];
+    });
     for (code, text) in BUILT_IN {
-        if code == ENGLISH {
+        if code == ENGLISH || code == DEFAULT {
             continue;
         }
         if let Some((name, _)) = parse(text) {
@@ -227,6 +270,28 @@ pub fn select(code: &str, dirs: &AppDirs) {
     });
     if let Ok(mut slot) = active().write() {
         *slot = catalog;
+    }
+}
+
+/// Puts the interface in [`DEFAULT`]'s shipped words when no language has
+/// been chosen yet this run: for what is said before the window reads the
+/// settings, such as why it could not start.
+pub fn select_default_if_unset() {
+    let unset = active().read().map(|slot| slot.is_none()).unwrap_or(false);
+    if !unset {
+        return;
+    }
+    if let Some((_, strings)) = BUILT_IN
+        .iter()
+        .find(|(code, _)| *code == DEFAULT)
+        .and_then(|(_, text)| parse(text))
+        && let Ok(mut slot) = active().write()
+        && slot.is_none()
+    {
+        *slot = Some(Arc::new(Catalog {
+            code: DEFAULT.to_owned(),
+            strings,
+        }));
     }
 }
 
@@ -425,6 +490,69 @@ mod tests {
         assert_eq!(t("common.export"), "Ausgabe");
         select(ENGLISH, &dirs);
         let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// Nobody has picked a language: the interface is in Simplified
+    /// Chinese, and Settings lists it first, chosen. A pick is kept, English
+    /// included.
+    #[test]
+    fn the_interface_starts_in_simplified_chinese_until_a_language_is_picked() {
+        assert_eq!(DEFAULT, "zh-Hans");
+        assert_eq!(startup(None), "zh-Hans");
+        assert_eq!(startup(Some("")), "zh-Hans");
+        assert_eq!(startup(Some("en")), "en");
+        assert_eq!(startup(Some("zh-TW")), "zh-TW");
+        assert_eq!(startup(Some("de")), "de");
+        let root = std::env::temp_dir().join(format!("concat-i18n-d-{}", std::process::id()));
+        let dirs = AppDirs::under(&root);
+        let listed = languages(&dirs);
+        assert_eq!(listed[0].code, "zh-Hans");
+        assert_eq!(listed[0].name, "简体中文");
+        assert_eq!(listed[1].code, ENGLISH);
+        assert_eq!(row_of(&listed, None), 0);
+        assert_eq!(listed[row_of(&listed, Some("en"))].code, "en");
+        assert_eq!(listed[row_of(&listed, Some("zh-TW"))].code, "zh-TW");
+        // Each language once.
+        let mut codes: Vec<&str> = listed.iter().map(|l| l.code.as_str()).collect();
+        let all = codes.len();
+        codes.sort();
+        codes.dedup();
+        assert_eq!(codes.len(), all);
+        assert_eq!(all, BUILT_IN.len());
+        let _language = language();
+        select(startup(None), &dirs);
+        assert_eq!(current(), "zh-Hans");
+        assert_eq!(t("common.settings"), "设置");
+        select(ENGLISH, &dirs);
+    }
+
+    /// Simplified Chinese reads in Chinese throughout: no line is left as
+    /// its English but a unit, an acronym, a brand or a code.
+    #[test]
+    fn no_simplified_chinese_line_is_left_in_english() {
+        const ALLOWED: [&str; 1] = ["controls.kelvin"];
+        let english = inventory();
+        let hans = parse(BUILT_IN.iter().find(|(c, _)| *c == "zh-Hans").unwrap().1)
+            .unwrap()
+            .1;
+        let units = ["Hz", "kHz", "K", "dB", "px", "fps", "ms", "s", "x", "%"];
+        let mut left: Vec<&String> = english
+            .iter()
+            .filter(|(key, text)| hans.get(*key) == Some(*text))
+            .filter(|(key, _)| !ALLOWED.contains(&key.as_str()))
+            .filter(|(_, text)| {
+                text.split(|c: char| c.is_whitespace() || "{}()/,:·-".contains(c))
+                    .filter(|word| !word.is_empty())
+                    .any(|word| {
+                        word.chars().any(|c| c.is_ascii_lowercase())
+                            && !units.contains(&word)
+                            && word.chars().any(|c| c.is_ascii_alphabetic())
+                    })
+            })
+            .map(|(key, _)| key)
+            .collect();
+        left.sort();
+        assert!(left.is_empty(), "zh-Hans still reads in English: {left:?}");
     }
 
     #[test]
