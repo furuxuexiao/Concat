@@ -1,5 +1,8 @@
 # Colours in the working space: linear light, 1.0 the white of an SDR
-# picture.
+# picture. Each `expect` is what scripts/hsl_model.py - the shader written
+# out in Python - gives for its input, rounded to half floats, and the GPU
+# matches it (concat-render's `every_package_probe_holds`): rerun the model
+# after changing effect.wgsl, and take any value it shows moved from there.
 
 [[probe]]
 name = "default"
@@ -31,6 +34,14 @@ name = "red hue +100 turns red towards orange"
 params = { red_hue = 100 }
 input = [0.5, 0.02, 0.02, 1]
 expect = [0.5, 0.12268, 0.020004, 1]
+
+# Turned away from orange, 30 degrees off, red is not held back: the full
+# 30 degrees towards magenta, where towards orange it stops at 24.
+[[probe]]
+name = "red hue -100 turns red the full 30 degrees towards magenta"
+params = { red_hue = -100 }
+input = [0.5, 0.02, 0.02, 1]
+expect = [0.5, 0.020004, 0.16541, 1]
 
 [[probe]]
 name = "a sky is untouched by orange at its most"

@@ -1,7 +1,11 @@
 # Colours in the working space: linear light, 1.0 the white of an SDR
 # picture. A probe is one flat colour, where smoothing has nothing to
 # even; these pin whiten and the skin mask, and the GPU tests in
-# concat-render pin the smoothing on a picture.
+# concat-render pin the smoothing on a picture. Each `expect` is what
+# scripts/beauty_model.py - the shader written out in Python - gives for
+# its input, rounded to half floats, and the GPU matches it (concat-render's
+# `every_package_probe_holds`): rerun the model after changing effect.wgsl,
+# and take any value it shows moved from there.
 
 [[probe]]
 name = "default"
