@@ -8,3 +8,8 @@ content = "Marker"
 fontFamily = "Permanent Marker"
 fontWeight = 400
 fontSize = 0.09
+
+# Simplified Chinese: what the Text page shows when the interface is in
+# 简体中文.
+[i18n.zh-Hans]
+name = "马克笔"

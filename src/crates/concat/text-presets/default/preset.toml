@@ -8,3 +8,9 @@ content = "New title"
 fontFamily = "Hanken Grotesk"
 fontWeight = 600
 fontSize = 0.09
+
+# Simplified Chinese: what the Text page shows when the interface is in
+# 简体中文.
+[i18n.zh-Hans]
+name = "标题"
+content = "新标题"

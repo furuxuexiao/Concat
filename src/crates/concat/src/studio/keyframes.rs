@@ -2023,9 +2023,7 @@ impl Studio {
             self.text_presets
                 .iter()
                 .filter(|preset| {
-                    query.is_empty()
-                        || preset.name.to_lowercase().contains(&query)
-                        || preset.language.to_lowercase().contains(&query)
+                    preset.matches_query(&query) || preset.language.to_lowercase().contains(&query)
                 })
                 .map(preset_card)
                 .collect(),
@@ -2932,7 +2930,7 @@ pub(crate) fn preset_card(preset: &TextPreset) -> TextPresetData {
     let plate = colour_of(&preset.style.background);
     TextPresetData {
         id: preset.id.as_str().into(),
-        name: preset.name.as_str().into(),
+        name: preset.name_in(&crate::i18n::current()).into(),
         language: preset.language.as_str().into(),
         sample: preset.sample.as_str().into(),
         family: preset.style.font_family.trim_matches('"').into(),

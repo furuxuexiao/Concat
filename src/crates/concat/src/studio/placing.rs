@@ -295,7 +295,7 @@ impl Studio {
         let (style, offset_y, font) = match self.text_presets.iter().find(|held| held.id == preset)
         {
             Some(found) => (
-                found.style.clone(),
+                found.style_in(&crate::i18n::current()),
                 found.offset_y,
                 presets::install_font(&self.host.dirs, found),
             ),

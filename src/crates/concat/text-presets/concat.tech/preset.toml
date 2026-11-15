@@ -11,3 +11,8 @@ fontSize = 0.08
 tracking = 0.02
 shadow = false
 color = "#9be7ff"
+
+# Simplified Chinese: what the Text page shows when the interface is in
+# 简体中文.
+[i18n.zh-Hans]
+name = "科技"

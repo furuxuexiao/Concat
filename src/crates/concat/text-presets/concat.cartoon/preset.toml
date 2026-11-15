@@ -11,3 +11,8 @@ fontSize = 0.12
 color = "#ff8a3d"
 strokeWidth = 0.01
 strokeColor = "#ffffff"
+
+# Simplified Chinese: what the Text page shows when the interface is in
+# 简体中文.
+[i18n.zh-Hans]
+name = "卡通"

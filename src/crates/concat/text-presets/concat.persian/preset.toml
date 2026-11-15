@@ -11,3 +11,8 @@ fontSize = 0.1
 color = "#FFE14D"
 strokeWidth = 0.008
 strokeColor = "#1A1A1A"
+
+# Simplified Chinese: what the Text page shows when the interface is in
+# 简体中文.
+[i18n.zh-Hans]
+name = "波斯文"
