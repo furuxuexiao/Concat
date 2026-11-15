@@ -58,12 +58,18 @@ pub enum CaptionsMsg {
     /// A clip's menu: the sheet on that clip's voice.
     OpenOnClip(String),
     Close,
+    /// The library's Captions page came into view, or left it: a desk's
+    /// home for what the phone's sheet shows.
+    Shown(bool),
     /// The "Use Sample Voice" switch.
     VoiceToggled(bool),
     /// Row in the list of clips with sound.
     SourceChanged(i32),
     TextEdited(String),
     ModelChanged(i32),
+    /// Row in the language list: 0 is "Auto-detect", then
+    /// [`language_list`] in its order.
+    LanguageChanged(i32),
     PlacementChanged(i32),
     SizeChanged(i32),
     /// Run the pass the sheet describes.
@@ -77,8 +83,6 @@ pub enum CaptionsMsg {
     ImportSrt,
     /// The SubRip file chosen: its cues as captions.
     ImportSrtFrom(PathBuf),
-    /// Row in the sheet's language list; see [`LANGUAGES`].
-    LanguageChanged(i32),
     /// How long a line may run: 0 by the frame, 1 short, 2 long.
     LineLengthChanged(i32),
     /// Drop the comma or full stop a line ends on.
@@ -111,11 +115,6 @@ struct Subject {
     script: Option<String>,
 }
 
-/// The languages the sheet offers, by the code the transcriber takes:
-/// heard by the transcriber, Chinese in Simplified and in Traditional
-/// characters, and English. The sheet names each in its own words.
-const LANGUAGES: [Option<&str>; 4] = [None, Some("zh"), Some("zh-Hant"), Some("en")];
-
 /// Seconds whisper takes over one thirty-second window, per megabyte of
 /// model, before a run on the model has been timed: about a second for
 /// base and ten for medium on eight cores of a recent CPU.
@@ -124,7 +123,10 @@ const WINDOW_SECONDS_PER_MB: f32 = 1.0 / 160.0;
 /// The captions sheet's state.
 #[derive(Default)]
 pub struct CaptionsPane {
+    /// The sheet is up: a phone's, or a window too narrow for the library.
     pub open: bool,
+    /// The library's Captions page is up, on a desk.
+    pub shown: bool,
     /// "Use Sample Voice": the words come from [`Self::clip`]'s sound
     /// when on, from [`Self::text`] when off.
     pub from_voice: bool,
@@ -141,6 +143,11 @@ pub struct CaptionsPane {
     pub text: String,
     /// Row in the installed transcriber list.
     pub model: usize,
+    /// The language the voice speaks, by whisper's code; `None` is
+    /// whisper's to hear. Remembered across runs as
+    /// `Preferences::caption_language`, so a person who captions in
+    /// Indonesian says so once. An English-only model ignores it.
+    pub language: Option<String>,
     /// 0 bottom, 1 centre, 2 top.
     pub placement: usize,
     /// 0 small, 1 medium, 2 large.
@@ -154,6 +161,8 @@ pub struct CaptionsPane {
     subject: Option<Subject>,
     /// How long each model took this session, for the next run's bar.
     timings: Timings,
+    /// What the style picker's search holds.
+    pub style_query: String,
 }
 
 impl CaptionsPane {
@@ -163,13 +172,36 @@ impl CaptionsPane {
         match msg {
             // A run in progress is shown as it is, however the panel is
             // asked for again: closing it never stopped the run.
-            CaptionsMsg::Open | CaptionsMsg::OpenOnClip(_) if self.running => self.open = true,
+            CaptionsMsg::Open | CaptionsMsg::OpenOnClip(_) if self.running => {
+                self.open = true;
+                self.show_in_library(studio);
+            }
             CaptionsMsg::Open => {
                 let selected = studio.sole_selection();
                 self.open_on(studio, selected, false);
+                self.show_in_library(studio);
             }
-            CaptionsMsg::OpenOnClip(id) => self.open_on(studio, Some(id), true),
+            CaptionsMsg::OpenOnClip(id) => {
+                self.open_on(studio, Some(id), true);
+                self.show_in_library(studio);
+            }
             CaptionsMsg::Close => self.open = false,
+            CaptionsMsg::Shown(shown) => {
+                // First shown with nothing asked for yet: the panel as the
+                // tray's button would set it up, without the sheet.
+                if shown
+                    && !self.shown
+                    && !self.open
+                    && !self.running
+                    && self.clip.is_none()
+                    && self.text.is_empty()
+                {
+                    let selected = studio.sole_selection();
+                    self.open_on(studio, selected, false);
+                    self.open = false;
+                }
+                self.shown = shown;
+            }
             CaptionsMsg::VoiceToggled(on) => {
                 self.from_voice = on;
                 self.message.clear();
@@ -196,15 +228,15 @@ impl CaptionsPane {
             }
             CaptionsMsg::TextEdited(text) => self.text = text,
             CaptionsMsg::ModelChanged(index) => self.model = index.max(0) as usize,
+            CaptionsMsg::LanguageChanged(index) => {
+                self.language = language_at(index);
+                studio.prefs.caption_language = self.language.clone();
+                studio.prefs.save(&studio.host.dirs);
+            }
             CaptionsMsg::PlacementChanged(index) => {
                 self.placement = (index.max(0) as usize).min(2);
             }
             CaptionsMsg::SizeChanged(index) => self.size = (index.max(0) as usize).min(2),
-            CaptionsMsg::LanguageChanged(index) => {
-                let index = (index.max(0) as usize).min(LANGUAGES.len() - 1);
-                studio.prefs.captions.language = LANGUAGES[index].map(str::to_owned);
-                studio.prefs.save(&studio.host.dirs);
-            }
             CaptionsMsg::LineLengthChanged(index) => {
                 studio.prefs.captions.line_length = index.clamp(0, 2) as u8;
                 studio.prefs.save(&studio.host.dirs);
@@ -249,7 +281,7 @@ impl CaptionsPane {
                             return;
                         };
                         let look = subject.look;
-                        let base = studio.prefs.title_style.clone();
+                        let (base, font) = caption_base(studio);
                         let commands: Vec<Command> =
                             caption_lines_of(&segments, subject.script.as_deref(), &subject.rules)
                                 .into_iter()
@@ -266,9 +298,17 @@ impl CaptionsPane {
                         let count = commands.len();
                         self.open = false;
                         if count == 0 {
+                            log::info!("captions: placed none · nothing was said in the clip");
                             studio.notify(&t("captions.nothingSaidClip"), true);
                         } else {
-                            studio.apply(Command::Batch { commands });
+                            log::info!(
+                                "captions: placed {count} captions from {:.2} s",
+                                subject.start
+                            );
+                            let _told = crate::studio::Asked::told();
+                            studio.apply(Command::Batch {
+                                commands: font.into_iter().chain(commands).collect(),
+                            });
                             studio.notify(&tf("captions.addedCaptions", &[&count]), false);
                         }
                     }
@@ -335,13 +375,16 @@ impl CaptionsPane {
         let cues = match cues {
             Ok(cues) => cues,
             Err(error) => {
-                log::warn!("captions: could not read {}: {error}", path.display());
+                log::warn!(
+                    "captions: reading the subtitles in {} failed: {error}; no captions were placed",
+                    crate::studio::file_name_of(&path.to_string_lossy())
+                );
                 self.message = tf("captions.couldNotReadSubtitles", &[&error]);
                 return;
             }
         };
         let look = self.look();
-        let base = studio.prefs.title_style.clone();
+        let (base, font) = caption_base(studio);
         let commands = srt_commands(cues, look, base.as_ref());
         if commands.is_empty() {
             self.message = t("captions.noSubtitlesInFile");
@@ -349,7 +392,14 @@ impl CaptionsPane {
         }
         let count = commands.len();
         self.open = false;
-        studio.apply(Command::Batch { commands });
+        log::info!(
+            "captions: placed {count} captions from the subtitles in {}",
+            crate::studio::file_name_of(&path.to_string_lossy())
+        );
+        let _told = crate::studio::Asked::told();
+        studio.apply(Command::Batch {
+            commands: font.into_iter().chain(commands).collect(),
+        });
         studio.notify(&tf("captions.addedCaptions", &[&count]), false);
     }
 
@@ -410,14 +460,17 @@ impl CaptionsPane {
         };
         let cues = srt::title_cues(studio.timeline(), Some(&lane.track_id));
         if let Err(error) = std::fs::write(path, srt::write(&cues)) {
-            log::warn!("captions: could not write {}: {error}", path.display());
+            log::warn!(
+                "captions: writing the subtitles to {} failed: {error}; nothing was exported",
+                crate::studio::file_name_of(&path.to_string_lossy())
+            );
             self.message = tf("captions.couldNotWriteSubtitles", &[&error]);
             return;
         }
         log::info!(
-            "captions: wrote {} cue(s) to {}",
+            "captions: exported {} captions to {}",
             cues.len(),
-            path.display()
+            crate::studio::file_name_of(&path.to_string_lossy())
         );
         self.open = false;
         let count = cues.len();
@@ -443,7 +496,10 @@ impl CaptionsPane {
                 crate::host::on_ui(move |studio, _, _| match result {
                     Ok(place) => say(studio, &place),
                     Err(error) => {
-                        log::warn!("captions: could not publish {}: {error}", written.display());
+                        log::warn!(
+                            "captions: wanted {} handed to the phone's files and it was not: {error}; it stays in the project's folder",
+                            crate::studio::file_name_of(&written.to_string_lossy())
+                        );
                         studio.notify(
                             &tf(
                                 "captions.couldNotPublishSubtitles",
@@ -464,6 +520,22 @@ impl CaptionsPane {
     /// any: the switch starts on when that clip has sound, or when a clip's
     /// menu asked for its voice (`voice`), in which case a clip without
     /// sound falls to the first clip that has some.
+    /// On a desk the panel is the library's Captions page, not a sheet:
+    /// the library is put in the dock if it was taken out, and turned to
+    /// that page. A phone, or a window too narrow for the library beside
+    /// the work, keeps the sheet.
+    fn show_in_library(&mut self, studio: &mut Studio) {
+        if studio.meters.phone || studio.compact {
+            return;
+        }
+        self.open = false;
+        if !studio.dock.contains(crate::ui::PaneKind::Media) {
+            crate::add_pane(studio, crate::ui::PaneKind::Media);
+            studio.remember_layout_soon();
+        }
+        studio.captions_jump += 1;
+    }
+
     fn open_on(&mut self, studio: &Studio, clip: Option<String>, voice: bool) {
         let installed = installed(&studio.settings.transcribers);
         let model = installed.iter().position(|model| model.active).unwrap_or(0);
@@ -481,9 +553,16 @@ impl CaptionsPane {
             clip,
             chosen_with: studio.sole_selection(),
             model,
+            // A code the list no longer has is heard instead.
+            language: studio
+                .prefs
+                .caption_language
+                .clone()
+                .filter(|code| language_row(Some(code)) > 0),
             placement: 0,
             size: 1,
             timings: std::mem::take(&mut self.timings),
+            shown: self.shown,
             ..CaptionsPane::default()
         };
     }
@@ -520,7 +599,7 @@ impl CaptionsPane {
         }
         let look = self.look();
         let mut at = f64::from(studio.playhead);
-        let base = studio.prefs.title_style.clone();
+        let (base, font) = caption_base(studio);
         let commands: Vec<Command> = lines
             .into_iter()
             .map(|(text, seconds)| {
@@ -531,7 +610,14 @@ impl CaptionsPane {
             .collect();
         let count = commands.len();
         self.open = false;
-        studio.apply(Command::Batch { commands });
+        log::info!(
+            "captions: placed {count} captions from a script, from {:.2} s",
+            studio.playhead
+        );
+        let _told = crate::studio::Asked::told();
+        studio.apply(Command::Batch {
+            commands: font.into_iter().chain(commands).collect(),
+        });
         studio.notify(&tf("captions.addedCaptions", &[&count]), false);
     }
 
@@ -564,7 +650,10 @@ impl CaptionsPane {
             source_start: clip.source_start,
             window: clip.duration * clip.speed,
             model_id: model.clone(),
-            language: language(studio).map(str::to_owned),
+            language: (!concat_speech::transcribe::english_only(&model))
+                .then(|| request_language(self.language.as_deref()))
+                .flatten()
+                .map(str::to_owned),
         };
         let dirs = studio.host.dirs.clone();
         let transcriber = Arc::clone(&studio.host.transcriber);
@@ -613,9 +702,32 @@ impl CaptionsPane {
         );
     }
 
+    /// Whether the model the sheet has chosen hears only English.
+    fn english_only(&self, studio: &Studio) -> bool {
+        installed(&studio.settings.transcribers)
+            .get(self.model)
+            .is_some_and(|model| concat_speech::transcribe::english_only(&model.id))
+    }
+
+    /// The sheet's language list: "Auto-detect", then every language
+    /// whisper knows by its own name. An English-only model hears English
+    /// and nothing else, so its list is English alone, and is not a choice.
+    /// Empty while the sheet is closed, which is most of the time.
+    pub fn language_rows(&self, studio: &Studio) -> Vec<slint::SharedString> {
+        if !self.open && !self.shown {
+            return Vec::new();
+        }
+        if self.english_only(studio) {
+            return vec![ENGLISH.into()];
+        }
+        std::iter::once(t("captions.autoDetect").into())
+            .chain(language_list().map(|(_, name)| name.into()))
+            .collect()
+    }
+
     /// The sheet as Slint shows it.
     pub fn data(&self, studio: &Studio) -> CaptionsSheetData {
-        let sources = if self.open {
+        let sources = if self.open || self.shown {
             sources(studio)
         } else {
             Vec::new()
@@ -628,6 +740,7 @@ impl CaptionsPane {
             .into_iter()
             .map(|source| source.label.into())
             .collect();
+        let english_only = self.english_only(studio);
         CaptionsSheetData {
             open: self.open,
             from_voice: self.from_voice,
@@ -635,6 +748,12 @@ impl CaptionsPane {
             source,
             text: self.text.as_str().into(),
             model: self.model as i32,
+            language: if english_only {
+                0
+            } else {
+                language_row(self.language.as_deref()) as i32
+            },
+            language_fixed: english_only,
             placement: self.placement as i32,
             size: self.size as i32,
             running: self.running,
@@ -650,27 +769,19 @@ impl CaptionsPane {
             .into(),
             ready: !installed(&studio.settings.transcribers).is_empty(),
             message: self.message.as_str().into(),
-            language: LANGUAGES
-                .iter()
-                .position(|code| *code == language(studio))
-                .unwrap_or(0) as i32,
             line_length: i32::from(studio.prefs.captions.line_length.min(2)),
             drop_punctuation: studio.prefs.captions.drop_end_punctuation,
         }
     }
 }
 
-/// The language a transcription is asked for: the one chosen in the sheet,
-/// or with none chosen, the transcriber's to hear - except under an
+/// The language a transcription is asked for: the one picked on the
+/// sheet, or with none picked, the transcriber's to hear - except under an
 /// interface in Traditional Chinese, where Chinese is meant to be written
 /// in Traditional characters, and hearing it would write Simplified.
-fn language(studio: &Studio) -> Option<&'static str> {
-    match studio.prefs.captions.language.as_deref() {
-        Some(code) => LANGUAGES
-            .iter()
-            .flatten()
-            .copied()
-            .find(|known| *known == code),
+fn request_language(picked: Option<&str>) -> Option<&str> {
+    match picked {
+        Some(code) => Some(code),
         None if crate::i18n::current() == "zh-TW" => Some("zh-Hant"),
         None => None,
     }
@@ -726,6 +837,47 @@ fn caption_lines_of(
         .map(|script| caption_lines::align_script(script, &heard))
         .filter(|matched| !matched.is_empty());
     caption_lines::lines(matched.as_ref().unwrap_or(&heard), rules)
+}
+
+/// English, as the language list names it.
+const ENGLISH: &str = "English";
+
+/// Chinese written in Traditional characters: to whisper it is Chinese,
+/// and the transcriber prompts it in the characters asked for.
+const TRADITIONAL_CHINESE: (&str, &str) = ("zh-Hant", "繁體中文");
+
+/// The languages the sheet offers after "Auto-detect", by the code the
+/// transcriber takes and each by its own name: every language whisper
+/// knows, Chinese twice over - in Simplified characters, then in
+/// Traditional - since the characters are the captions' and whisper
+/// writes either.
+fn language_list() -> impl Iterator<Item = (&'static str, &'static str)> {
+    concat_speech::transcribe::LANGUAGES
+        .iter()
+        .flat_map(|&(code, name)| {
+            if code == "zh" {
+                vec![("zh", "简体中文"), TRADITIONAL_CHINESE]
+            } else {
+                vec![(code, name)]
+            }
+        })
+}
+
+/// The language list's row for `code`: 0, "Auto-detect", for none and
+/// for a code the list does not have.
+fn language_row(code: Option<&str>) -> usize {
+    code.and_then(|code| language_list().position(|(known, _)| known == code))
+        .map_or(0, |index| index + 1)
+}
+
+/// The language at row `index` of the list; `None` for "Auto-detect" and
+/// for a row past its end.
+fn language_at(index: i32) -> Option<String> {
+    usize::try_from(index)
+        .ok()
+        .and_then(|row| row.checked_sub(1))
+        .and_then(|row| language_list().nth(row))
+        .map(|(code, _)| code.to_owned())
 }
 
 /// Imported cues keep the file's timing, including captions shorter than
@@ -901,6 +1053,8 @@ fn caption_clip(
             font_size,
             max_width: 0.0,
             max_height: 0.0,
+            // Runs are some words' looks, and these are other words.
+            runs: Vec::new(),
             ..base.clone()
         },
         None => TextStyle {
@@ -919,6 +1073,38 @@ fn caption_clip(
         duration: Some(duration),
         offset_y: Some(offset_y),
     }
+}
+
+/// The look captions are set in, before their own size and place: the
+/// text preset picked on the sheet (`Preferences::caption_style`), with
+/// the font it brings registered on the project in the same undo step;
+/// or, for the plain preset or none, the look a title was kept as.
+fn caption_base(studio: &Studio) -> (Option<TextStyle>, Option<Command>) {
+    let picked = studio
+        .prefs
+        .caption_style
+        .as_deref()
+        .filter(|id| *id != "default")
+        .and_then(|id| studio.text_presets.iter().find(|preset| preset.id == id));
+    match picked {
+        Some(preset) => (
+            Some(preset.style.clone()),
+            crate::presets::install_font(&studio.host.dirs, preset)
+                .map(|(family, path)| Command::AddFont { family, path }),
+        ),
+        None => (studio.prefs.title_style.clone(), None),
+    }
+}
+
+/// The preset the sheet shows as picked: the one remembered, while it is
+/// still on the list, else the plain one.
+pub fn caption_style_id(studio: &Studio) -> &str {
+    studio
+        .prefs
+        .caption_style
+        .as_deref()
+        .filter(|id| studio.text_presets.iter().any(|preset| preset.id == *id))
+        .unwrap_or("default")
 }
 
 /// Longest a caption line gets before it is wrapped: about what two lines
@@ -1112,6 +1298,35 @@ mod tests {
         );
         // The chosen clip deleted: nothing to run, rather than a clip unseen.
         assert_eq!(follow(None, None, Some("gone")), None);
+    }
+
+    /// Row 0 is "Auto-detect", and a language's row reads back as the
+    /// same language; a code the list lacks, or a row past it, is heard.
+    #[test]
+    fn a_language_row_reads_back_as_its_code() {
+        assert_eq!(super::language_row(None), 0);
+        assert_eq!(super::language_row(Some("klingon")), 0);
+        assert_eq!(super::language_at(0), None);
+        assert_eq!(super::language_at(-1), None);
+        assert_eq!(super::language_at(100_000), None);
+        let row = super::language_row(Some("id"));
+        assert!(row > 0);
+        assert_eq!(super::language_at(row as i32).as_deref(), Some("id"));
+        assert_eq!(
+            super::language_list().nth(row - 1).map(|(_, name)| name),
+            Some("Bahasa Indonesia")
+        );
+        // Chinese is offered in both its characters, one row after the
+        // other, and each reads back as itself.
+        let simplified = super::language_row(Some("zh"));
+        let traditional = super::language_row(Some("zh-Hant"));
+        assert!(simplified > 0);
+        assert_eq!(traditional, simplified + 1);
+        assert_eq!(
+            super::language_at(traditional as i32).as_deref(),
+            Some("zh-Hant")
+        );
+        assert_eq!(super::request_language(Some("zh-Hant")), Some("zh-Hant"));
     }
 
     #[test]
