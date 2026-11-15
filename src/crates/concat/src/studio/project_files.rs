@@ -296,8 +296,11 @@ impl Studio {
             return;
         };
         match concat_host::projects::clear_cache(&path) {
-            Ok(count) => self.notify(&format!("Cleared {count} cache files"), false),
-            Err(error) => self.notify(&format!("Cache clear failed: {error}"), true),
+            Ok(count) => self.notify(
+                &crate::i18n::tf("studio.clearedCacheFiles", &[&count]),
+                false,
+            ),
+            Err(error) => self.notify(&crate::i18n::tf("studio.cacheClearFailed", &[&error]), true),
         }
         self.request_media_art();
         self.request_preview();

@@ -726,7 +726,7 @@ pub fn window_art(
 
 /// A probe's error, in the words a toast can use.
 pub fn probe_error(error: &str) -> String {
-    format!("Could not import: {error}")
+    crate::i18n::tf("host.couldNotImport", &[&error])
 }
 
 /// A media item's card picture, decoded on a worker ahead of the rest of

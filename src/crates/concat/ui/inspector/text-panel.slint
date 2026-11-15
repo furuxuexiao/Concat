@@ -184,7 +184,7 @@ export component TextPanel inherits VerticalLayout {
         content := SectionHeader {
             title: I18n.t("textPanel.content");
             collapsible: true;
-            summary: root.selected.content == "" ? "Empty" : root.selected.content;
+            summary: root.selected.content == "" ? I18n.t("textPanel.emptyTitle") : root.selected.content;
         }
 
         if content.open: SectionBody {

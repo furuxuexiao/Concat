@@ -449,7 +449,7 @@ impl Studio {
                     text.set_content(value.to_owned(), caret);
                     let first = value.lines().next().unwrap_or("").trim().to_owned();
                     clip.name = if first.is_empty() {
-                        "Title".into()
+                        crate::i18n::t("studio.titleClip")
                     } else {
                         first
                     };

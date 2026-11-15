@@ -454,7 +454,7 @@ impl Studio {
             return;
         }
         if !video && first.kind == model::ClipKind::Image {
-            self.notify("A still has no sound to filter", true);
+            self.notify(&t("studio.stillHasNoSound"), true);
             return;
         }
         let mut commands: Vec<Command> = ids
