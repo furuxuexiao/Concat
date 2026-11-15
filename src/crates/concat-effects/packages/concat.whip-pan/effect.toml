@@ -21,3 +21,14 @@ default = 80
 fallback = "slideleft"
 xfade = "slideleft"
 entry = "effect.wgsl"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "快速甩镜"
+category = "擦除"
+description = "镜头飞快地横向甩动，画面拉出拖影，落到下一个镜头上。"
+keywords = ["甩镜", "横摇"]
+
+[i18n.zh-Hans.params.speed]
+label = "速度"

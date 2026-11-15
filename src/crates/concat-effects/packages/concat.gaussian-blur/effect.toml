@@ -43,3 +43,14 @@ shrink = ["if(radius < 6, 64, radius / 3)", "if(radius < 6, 64, radius / 3)"]
 id = "concat.box-blur"
 defaults = { radius = 6 }
 knobs = { radius = "sqrt(radius * (radius + 1) / 3)" }
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "高斯模糊"
+category = "模糊"
+description = "柔和均匀的模糊。"
+keywords = ["模糊", "虚化"]
+
+[i18n.zh-Hans.params.radius]
+label = "半径"

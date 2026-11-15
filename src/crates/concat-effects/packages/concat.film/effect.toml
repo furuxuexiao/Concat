@@ -30,3 +30,17 @@ unit = "%"
 [wgsl]
 entry = "effect.wgsl"
 space = "display"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "胶片"
+category = "电影感"
+description = "带真实趾部和肩部的胶片曲线、灯光周围温暖的光晕，以及会动的颗粒。是印片质感，而不是滤镜。"
+keywords = ["电影", "颗粒"]
+
+[i18n.zh-Hans.params.grain]
+label = "颗粒"
+
+[i18n.zh-Hans.params.warmth]
+label = "暖度"

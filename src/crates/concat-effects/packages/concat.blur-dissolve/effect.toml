@@ -21,3 +21,14 @@ default = 60
 fallback = "cross-fade"
 xfade = "dissolve"
 entry = "effect.wgsl"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "模糊叠化"
+category = "叠化"
+description = "两个镜头在切换处逐渐模糊，在模糊中完成交替，下一个镜头再重新清晰。"
+keywords = ["模糊", "虚化"]
+
+[i18n.zh-Hans.params.strength]
+label = "强度"

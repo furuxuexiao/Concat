@@ -11,3 +11,11 @@ description = "Desaturated and heavy, with a cold cast into the shadows and the 
 [wgsl]
 entry = "effect.wgsl"
 space = "display"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "黑色电影"
+category = "电影感"
+description = "低饱和、厚重，阴影偏冷，四角压暗。"
+keywords = ["暗黑", "冷峻"]

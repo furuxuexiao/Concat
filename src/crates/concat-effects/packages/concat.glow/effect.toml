@@ -33,3 +33,14 @@ shrink = ["4", "1"]
 [[wgsl.pass]]
 target = "down"
 shrink = ["4", "4"]
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "发光"
+category = "风格化"
+description = "画面亮部周围柔和的光晕。"
+keywords = ["辉光", "柔光"]
+
+[i18n.zh-Hans.params.amount]
+label = "强度"

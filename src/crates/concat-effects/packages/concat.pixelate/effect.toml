@@ -23,3 +23,14 @@ unit = "px"
 
 [wgsl]
 entry = "effect.wgsl"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "像素化"
+category = "扭曲"
+description = "大块方形像素。"
+keywords = ["马赛克", "像素"]
+
+[i18n.zh-Hans.params.size]
+label = "大小"

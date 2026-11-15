@@ -19,3 +19,14 @@ unit = "dB"
 
 [ffmpeg]
 chain = "bass=g={fixed(gain, 2)}:f=110:w=0.6,alimiter=limit=0.95"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "低音增强"
+category = "音色"
+description = "加强低频。"
+keywords = ["低音", "重低音"]
+
+[i18n.zh-Hans.params.gain]
+label = "增益"

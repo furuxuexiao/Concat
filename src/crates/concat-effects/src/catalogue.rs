@@ -1550,4 +1550,160 @@ mod tests {
             "an option that merely ends in the word"
         );
     }
+
+    /// Every built-in package speaks Simplified Chinese: a name, its shelf,
+    /// its sentence, every knob's label and subhead and every choice, none
+    /// of them left as the English or empty.
+    #[test]
+    fn every_builtin_package_has_simplified_chinese_words() {
+        let han = |text: &str| text.chars().any(|c| ('\u{4e00}'..='\u{9fff}').contains(&c));
+        let mut count = 0;
+        for package in Catalogue::builtin().packages() {
+            let manifest = &package.manifest;
+            let id = package.id();
+            let words = manifest
+                .words("zh-Hans")
+                .unwrap_or_else(|| panic!("{id} has no [i18n.zh-Hans]"));
+            assert!(
+                words.name.as_deref().is_some_and(han),
+                "{id}: its zh-Hans name is missing or not Chinese"
+            );
+            assert_ne!(manifest.name_in("zh-Hans"), manifest.effect.name, "{id}");
+            if !manifest.effect.category.is_empty() {
+                assert!(han(manifest.category_in("zh-Hans")), "{id}: category");
+            }
+            if !manifest.effect.description.is_empty() {
+                assert!(han(manifest.description_in("zh-Hans")), "{id}: description");
+            }
+            for param in &manifest.params {
+                assert!(
+                    han(manifest.label_in(param, "zh-Hans")),
+                    "{id}: {}",
+                    param.key
+                );
+                if !param.group.is_empty() {
+                    assert!(
+                        han(manifest.group_in(param, "zh-Hans")),
+                        "{id}: {} group",
+                        param.key
+                    );
+                }
+                for label in manifest.labels_in(param, "zh-Hans") {
+                    assert!(han(label), "{id}: {} choice {label:?}", param.key);
+                }
+            }
+            // English, and a language nobody wrote, read the manifest's own.
+            assert_eq!(manifest.name_in("en"), manifest.effect.name);
+            assert_eq!(manifest.name_in("de"), manifest.effect.name);
+            count += 1;
+        }
+        assert!(count >= 132, "only {count} built-in packages");
+    }
+
+    /// One English shelf or subhead is one Chinese one, whichever package
+    /// says it: the shelves are gathered by the English, and a strip that
+    /// named one shelf two ways would read as two.
+    #[test]
+    fn a_shelf_or_subhead_reads_the_same_in_every_package() {
+        let mut shelves: HashMap<(Kind, String), String> = HashMap::new();
+        let mut groups: BTreeMap<String, String> = BTreeMap::new();
+        for package in Catalogue::builtin().packages() {
+            let manifest = &package.manifest;
+            let english = manifest.effect.category.clone();
+            let chinese = manifest.category_in("zh-Hans").to_owned();
+            let held = shelves
+                .entry((package.kind(), english.clone()))
+                .or_insert_with(|| chinese.clone());
+            assert_eq!(*held, chinese, "{}: shelf {english:?}", package.id());
+            for param in &manifest.params {
+                if param.group.is_empty() {
+                    continue;
+                }
+                let chinese = manifest.group_in(param, "zh-Hans").to_owned();
+                let held = groups
+                    .entry(param.group.clone())
+                    .or_insert_with(|| chinese.clone());
+                assert_eq!(
+                    *held,
+                    chinese,
+                    "{}: subhead {:?}",
+                    package.id(),
+                    param.group
+                );
+            }
+        }
+    }
+
+    /// The library's search finds a package by its Chinese name or a
+    /// Chinese keyword, and still by its English name and its old ids.
+    #[test]
+    fn search_finds_a_package_by_its_chinese_or_english_words() {
+        let catalogue = Catalogue::builtin();
+        let found = |query: &str| -> Vec<&str> {
+            catalogue
+                .packages()
+                .filter(|package| package.manifest.matches_query(query))
+                .map(Package::id)
+                .collect()
+        };
+        assert!(found("高斯模糊").contains(&"concat.gaussian-blur"));
+        assert!(found("色度抠图").contains(&"concat.chroma-key"));
+        assert!(found("绿幕").contains(&"concat.chroma-key"), "a keyword");
+        assert!(found("叠化").contains(&"concat.dissolve"));
+        assert!(found("鱼眼").contains(&"concat.fisheye"));
+        assert!(found("胶片颗粒").contains(&"concat.film-grain"));
+        assert!(found("Gaussian").contains(&"concat.gaussian-blur"));
+        assert!(found("chroma key").contains(&"concat.chroma-key"));
+        assert!(
+            found("cross-fade").contains(&"concat.dissolve"),
+            "an old id"
+        );
+        assert!(found("").len() >= 132);
+        assert!(
+            found("concat").is_empty(),
+            "the author is not a search word"
+        );
+        assert!(found("没有这个特效").is_empty());
+    }
+
+    /// A translation that names a knob the package does not have, or gives
+    /// an enum the wrong number of choices, is refused at load, like any
+    /// other mistake in a manifest.
+    #[test]
+    fn a_translation_must_fit_the_package() {
+        let base = r#"
+format = 2
+[effect]
+id = "test.words"
+name = "Words"
+kind = "effect"
+[[param]]
+key = "side"
+label = "Side"
+type = "enum"
+values = [0, 1]
+labels = ["Left", "Right"]
+default = 0
+[wgsl]
+entry = "e.wgsl"
+"#;
+        let good = format!(
+            "{base}[i18n.zh-Hans]\nname = \"字\"\n[i18n.zh-Hans.params.side]\nlabel = \"方向\"\nlabels = [\"左\", \"右\"]\n"
+        );
+        let manifest = Manifest::parse(&good).expect("a fitting translation loads");
+        assert_eq!(manifest.name_in("zh-Hans"), "字");
+        assert_eq!(manifest.name_in("ZH-HANS"), "字");
+        assert_eq!(
+            manifest.labels_in(&manifest.params[0], "zh-Hans"),
+            ["左", "右"]
+        );
+        assert_eq!(
+            manifest.labels_in(&manifest.params[0], "en"),
+            ["Left", "Right"]
+        );
+        let stray = format!("{base}[i18n.zh-Hans.params.nope]\nlabel = \"无\"\n");
+        assert!(Manifest::parse(&stray).is_err());
+        let short = format!("{base}[i18n.zh-Hans.params.side]\nlabels = [\"左\"]\n");
+        assert!(Manifest::parse(&short).is_err());
+    }
 }

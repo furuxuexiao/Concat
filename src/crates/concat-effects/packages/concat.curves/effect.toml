@@ -39,3 +39,27 @@ space = "display"
 # At rest the picture is as shot; the card shows a gentle S.
 [card]
 params = { "luma.0.x" = 0.0, "luma.0.y" = 0.0, "luma.1.x" = 0.25, "luma.1.y" = 0.18, "luma.2.x" = 0.75, "luma.2.y" = 0.84, "luma.3.x" = 1.0, "luma.3.y" = 1.0 }
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "曲线"
+category = "色彩"
+description = "沿着你绘制的曲线调整画面色阶：亮度曲线只调明暗，另有红、绿、蓝曲线。"
+keywords = ["调色", "RGB"]
+
+[i18n.zh-Hans.params.luma]
+label = "亮度"
+group = "曲线"
+
+[i18n.zh-Hans.params.red]
+label = "红色"
+group = "曲线"
+
+[i18n.zh-Hans.params.green]
+label = "绿色"
+group = "曲线"
+
+[i18n.zh-Hans.params.blue]
+label = "蓝色"
+group = "曲线"

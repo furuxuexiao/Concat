@@ -21,3 +21,14 @@ unit = "%"
 [wgsl]
 entry = "effect.wgsl"
 space = "display"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "独立电影"
+category = "电影感"
+description = "中间调偏柔和的青绿色，温和的胶片曲线，只有人脸带暖意。独立电影般安静的调色。"
+keywords = ["文艺"]
+
+[i18n.zh-Hans.params.amount]
+label = "强度"

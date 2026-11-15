@@ -13,3 +13,11 @@ description = "The outgoing shot fades down to black, then the incoming one fade
 entry = "effect.wgsl"
 xfade = "fadeblack"
 fallback = "cross-fade"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "黑场过渡"
+category = "基础"
+description = "上一个镜头渐隐到黑色，下一个镜头再从黑色中渐显。"
+keywords = ["闪黑", "淡出", "黑场"]

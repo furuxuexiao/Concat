@@ -23,3 +23,14 @@ step = 1
 [wgsl]
 entry = "effect.wgsl"
 space = "display"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "色调分离"
+category = "风格化"
+description = "平涂的色块，像丝网印刷。"
+keywords = ["海报", "色块"]
+
+[i18n.zh-Hans.params.levels]
+label = "色阶"

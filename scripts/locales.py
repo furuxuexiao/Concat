@@ -19,8 +19,8 @@ Every string a person reads passes through `I18n.t("key")` (or `t1`, `t2`,
 `upper`) in the .slint tree, or `t("key")` / `tf("key", ...)` in the window's
 Rust. Those keys' English is written in en.json by whoever adds the string.
 Effects, filters, transitions and text presets are data, not interface:
-their words are always the English their manifests write, and have no
-lines here.
+they have no lines here, and carry their own translations in an
+`[i18n.<code>]` table beside their English (effect.toml, preset.toml).
 
 en.json is the inventory a translator starts from; see TRANSLATING.md.
 

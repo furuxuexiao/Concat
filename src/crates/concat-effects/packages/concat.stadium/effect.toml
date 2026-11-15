@@ -18,3 +18,14 @@ step = 0.5
 
 [ffmpeg]
 chain = "aecho=0.8:0.88:{round(120 + size * 18)}|{round(240 + size * 36)}:0.45|0.28,lowpass=f=6500"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "体育场"
+category = "空间"
+description = "巨大场馆里辽阔的回声和混响。"
+keywords = ["混响", "回声"]
+
+[i18n.zh-Hans.params.size]
+label = "空间大小"

@@ -22,3 +22,14 @@ let = [
   "bits = 16 - (noise / 100) * 12",
 ]
 chain = "highpass=f=300,lowpass=f=3400,acrusher=bits={round(bits)}:mode=log:mix=0.6,alimiter=limit=0.9"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "收音机"
+category = "音色"
+description = "长波电台的小喇叭：窄频带，带一点嘈杂。"
+keywords = ["广播", "电台"]
+
+[i18n.zh-Hans.params.noise]
+label = "噪点"

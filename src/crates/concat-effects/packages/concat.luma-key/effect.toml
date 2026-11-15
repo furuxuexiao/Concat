@@ -43,3 +43,20 @@ space = "display"
 # The still's shadows taken out, for the card.
 [card]
 params = { threshold = 35 }
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "亮度抠像"
+category = "抠像"
+description = "抠除画面的暗部——黑底拍摄的火焰、烟雾或火花——或者反转后抠除亮部。"
+keywords = ["抠像", "抠图"]
+
+[i18n.zh-Hans.params.threshold]
+label = "阈值"
+
+[i18n.zh-Hans.params.softness]
+label = "柔和度"
+
+[i18n.zh-Hans.params.invert]
+label = "反转"

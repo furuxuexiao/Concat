@@ -58,3 +58,23 @@ shrink = ["2", "2"]
 
 [card]
 params = { threshold = 45, amount = 80 }
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "日冕"
+category = "胶片"
+description = "以黄金角螺旋模糊从画面过曝高光中聚出冷蓝白色的光冕——从零构建，并非照搬常见的光晕。"
+keywords = ["光晕", "辉光"]
+
+[i18n.zh-Hans.params.threshold]
+label = "阈值"
+
+[i18n.zh-Hans.params.radius]
+label = "半径"
+
+[i18n.zh-Hans.params.amount]
+label = "强度"
+
+[i18n.zh-Hans.params.cool]
+label = "冷度"

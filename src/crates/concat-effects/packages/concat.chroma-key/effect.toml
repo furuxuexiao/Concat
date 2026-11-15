@@ -196,3 +196,45 @@ knobs = { spill = "0" }
 id = "concat.chroma-key"
 defaults = { color = 0, similarity = 30, softness = 10, spill = 50 }
 knobs = { color = "color", strength = "70 + similarity", clip_white = "max(60, 95 - softness)", spill = "spill" }
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "色度抠图"
+category = "抠像"
+description = "抠除绿幕或蓝幕——自动识别，或从画面中吸取颜色——即使光照不均也能抠干净，并清除边缘残留的幕布颜色和主体上的溢色。如需去除黑色背景，请使用“去黑底”。"
+keywords = ["绿幕", "蓝幕", "抠像", "抠图"]
+
+[i18n.zh-Hans.params.color]
+label = "抠像颜色"
+
+[i18n.zh-Hans.params.strength]
+label = "强度"
+
+[i18n.zh-Hans.params.shadows]
+label = "阴影"
+
+[i18n.zh-Hans.params.balance]
+label = "平衡"
+
+[i18n.zh-Hans.params.clip_black]
+label = "黑场裁切"
+
+[i18n.zh-Hans.params.clip_white]
+label = "白场裁切"
+
+[i18n.zh-Hans.params.grow]
+label = "收缩 / 扩展"
+
+[i18n.zh-Hans.params.feather]
+label = "边缘羽化"
+
+[i18n.zh-Hans.params.spill]
+label = "去溢色"
+
+[i18n.zh-Hans.params.restore]
+label = "保留亮度"
+
+[i18n.zh-Hans.params.view]
+label = "显示"
+labels = ["结果", "遮罩", "状态"]

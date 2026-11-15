@@ -21,3 +21,14 @@ unit = "%"
 [wgsl]
 entry = "effect.wgsl"
 space = "display"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "诡异"
+category = "风格化"
+description = "褪去的色彩、青绿色偏、硬朗的暗部，加上浓重的暗角。应节之选。"
+keywords = ["恐怖", "万圣节"]
+
+[i18n.zh-Hans.params.dread]
+label = "阴森感"

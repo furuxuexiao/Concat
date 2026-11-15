@@ -39,3 +39,20 @@ unit = "%"
 [wgsl]
 entry = "effect.wgsl"
 space = "display"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "青橙"
+category = "电影感"
+description = "阴影偏青、高光偏橙、肤色保持自然，再加一条胶片曲线。好莱坞大片的调色，也是最受欢迎的色调。"
+keywords = ["电影", "大片"]
+
+[i18n.zh-Hans.params.amount]
+label = "强度"
+
+[i18n.zh-Hans.params.contrast]
+label = "对比度"
+
+[i18n.zh-Hans.params.skin]
+label = "肤色保护"

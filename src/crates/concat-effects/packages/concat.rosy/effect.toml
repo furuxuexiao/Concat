@@ -11,3 +11,11 @@ description = "A soft pink lift into the highlights, flattering and warm."
 [wgsl]
 entry = "effect.wgsl"
 space = "display"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "玫瑰"
+category = "人像"
+description = "高光带柔和的粉色，讨喜而温暖。"
+keywords = ["粉色", "气色"]

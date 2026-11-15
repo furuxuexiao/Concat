@@ -19,3 +19,14 @@ unit = "dB"
 
 [ffmpeg]
 chain = "treble=g={fixed(gain, 2)}:f=9000:w=0.7,alimiter=limit=0.95"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "高音增强"
+category = "音色"
+description = "更多闪亮的高频。"
+keywords = ["高音", "高频"]
+
+[i18n.zh-Hans.params.gain]
+label = "增益"

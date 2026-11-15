@@ -23,3 +23,14 @@ step = 1
 
 [wgsl]
 entry = "effect.wgsl"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "胶片颗粒"
+category = "风格化"
+description = "跳动的颗粒，胶片的质感。"
+keywords = ["颗粒", "噪点"]
+
+[i18n.zh-Hans.params.amount]
+label = "强度"

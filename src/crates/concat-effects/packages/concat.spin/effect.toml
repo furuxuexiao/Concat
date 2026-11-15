@@ -19,3 +19,14 @@ default = 1
 [transition]
 fallback = "cross-fade"
 entry = "effect.wgsl"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "旋转"
+category = "旋转"
+description = "画面旋转起来，边转边模糊，下一个镜头从旋转中转出并停稳。"
+keywords = ["旋转", "转圈"]
+
+[i18n.zh-Hans.params.turns]
+label = "圈数"

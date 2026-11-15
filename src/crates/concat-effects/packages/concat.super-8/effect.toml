@@ -11,3 +11,11 @@ description = "Faded, warm and grainy: an old home movie run through a projector
 [wgsl]
 entry = "effect.wgsl"
 space = "display"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "超 8 胶片"
+category = "胶片"
+description = "褪色、温暖、多颗粒：用放映机放出来的老家庭录像。"
+keywords = ["Super 8", "家庭录像", "复古"]
