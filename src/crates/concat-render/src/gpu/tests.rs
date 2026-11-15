@@ -3408,7 +3408,7 @@ fn colour_below_black_is_carried_through() {
         )
         .expect("a shader");
     let alone = vec![[0.45, 0.25, -0.01, 1.0]];
-    let got = treated(&mut gpu, (1, 1), &alone, &[pass.clone()]);
+    let got = treated(&mut gpu, (1, 1), &alone, std::slice::from_ref(&pass));
     eprintln!("alone: {:?}", got[0]);
     assert!(
         moved(got[0], alone[0]) < 1e-3 && got[0][2] < 0.0,
@@ -3863,7 +3863,7 @@ fn hsl_saturation_at_its_most_stops_at_black_and_white() {
         let wheel: Vec<[f32; 4]> = (0..size.0)
             .map(|x| lit(hsv(x as f32 / 2.0, s, v)))
             .collect();
-        let got = treated(&mut gpu, size, &wheel, &[pass.clone()]);
+        let got = treated(&mut gpu, size, &wheel, std::slice::from_ref(&pass));
         for x in 0..got.len() {
             let (before, after) = (shown(wheel[x]), shown(got[x]));
             for c in 0..3 {
@@ -3933,7 +3933,7 @@ fn hsl_saturation_keeps_a_ramp_to_white_in_order() {
                     lit([top[0] * f, top[1] * f, top[2] * f])
                 })
                 .collect();
-            let got = treated(&mut gpu, (steps, 1), &ramp, &[pass.clone()]);
+            let got = treated(&mut gpu, (steps, 1), &ramp, std::slice::from_ref(&pass));
             let bright = |px: [f32; 4]| {
                 let d = shown(px);
                 0.2126 * d[0] + 0.7152 * d[1] + 0.0722 * d[2]
@@ -3963,7 +3963,10 @@ fn hsl_saturation_keeps_a_ramp_to_white_in_order() {
 /// brightest channel at most 0.75, in the display encoding: chroma never
 /// more than doubles; it at least half again where the brightest channel is
 /// at most 0.6, and at least 1.35 times everywhere in the grid; brightness
-/// is kept throughout.
+/// is kept throughout. Close to double where there is room: the median gain
+/// is at least 1.85 where the brightest channel is at most 0.6, and at least
+/// 1.75 over the whole grid. The least gain falls on a bright yellow or
+/// yellow-green, as the package says, not on a green.
 #[test]
 fn hsl_saturation_doubles_mid_colours() {
     let Some(mut gpu) = heavy_gpu() else { return };
@@ -3992,88 +3995,137 @@ fn hsl_saturation_doubles_mid_colours() {
     let got = treated(&mut gpu, (colours.len() as u32, 1), &picture, &[pass]);
     let bright = |d: [f32; 3]| 0.2126 * d[0] + 0.7152 * d[1] + 0.0722 * d[2];
     let mut failures = Vec::new();
-    let mut least = f32::MAX;
+    let mut least = (f32::MAX, 0.0f32);
+    let (mut gains, mut roomy) = (Vec::new(), Vec::new());
     for (i, colour) in colours.iter().enumerate() {
         let after = shown(got[i]);
-        let (_, c0) = hue_and_chroma(*colour);
+        let (h0, c0) = hue_and_chroma(*colour);
         let (_, c1) = hue_and_chroma(after);
         let gain = c1 / c0;
-        least = least.min(gain);
+        if gain < least.0 {
+            least = (gain, h0);
+        }
         let y = bright(*colour);
         let high = colour[0].max(colour[1]).max(colour[2]);
+        gains.push(gain);
+        if high <= 0.6 {
+            roomy.push(gain);
+        }
         if high <= 0.6 && gain < 1.5 {
             failures.push(format!("{colour:?} has room and gained only {gain}"));
         }
-        if gain < 1.35 || gain > 2.0 + 1e-3 {
+        if !(1.35..=2.0 + 1e-3).contains(&gain) {
             failures.push(format!("{colour:?} gained {gain}"));
         }
         if (bright(after) - y).abs() >= 2e-3 {
             failures.push(format!("{colour:?}: brightness moved"));
         }
     }
-    eprintln!("{} colours, least gain {least:.3}", colours.len());
+    let median = |mut v: Vec<f32>| {
+        v.sort_by(f32::total_cmp);
+        v[v.len() / 2]
+    };
+    let (all, with_room) = (median(gains), median(roomy));
+    eprintln!(
+        "{} colours, least gain {:.3} at {:.1} degrees, median {all:.3}, median with room {with_room:.3}",
+        colours.len(),
+        least.0,
+        least.1,
+    );
+    if with_room < 1.85 {
+        failures.push(format!("median gain with room only {with_room}"));
+    }
+    if all < 1.75 {
+        failures.push(format!("median gain only {all}"));
+    }
+    if !(45.0..=100.0).contains(&least.1) {
+        failures.push(format!("least gain at {} degrees, not a yellow", least.1));
+    }
     assert!(failures.is_empty(), "{failures:#?}");
 }
 
-/// Close clusters of five-pixel red spots - the case the package says may
-/// be left largely as it is - with whiten at its most, at the default and
-/// the most smoothing: no spot ends up standing out more than 0.45 further
-/// than it did, and no cluster leaves a halo (0.04 in the display encoding).
+/// Close clusters of five-pixel spots - the case the package says may be
+/// left largely as it is - acne-coloured and red, with centres seven and
+/// nine pixels apart, at 1080 lines and drawn twice as large at 2160. With
+/// whiten at its most, at a smoothing of 25, the default and the most, no
+/// pixel of a spot ends up standing out more than 0.45 further than it did;
+/// with whiten at its default 30, at a smoothing of 25 and at the most, no
+/// more than a quarter further (the default with whiten 30 is
+/// `beauty_takes_spots_in_a_cluster`). No cluster leaves a halo (0.04 in the display
+/// encoding).
 #[test]
-fn beauty_bounds_close_clusters_at_full_whiten() {
+fn beauty_bounds_close_clusters() {
     let Some(mut gpu) = heavy_gpu() else { return };
+    let acne = [0.33, 0.13, 0.08, 1.0];
     let red = [0.40, 0.10, 0.08, 1.0];
-    let size = (64, 1080);
     let mut failures = Vec::new();
-    for apart in [7.0f32, 9.0] {
-        let centres = [
-            (32.0 - apart / 2.0, 30.0),
-            (32.0 + apart / 2.0, 30.0),
-            (32.0, 30.0 + apart * 0.866),
-        ];
-        let off = |x: u32, y: u32| {
-            centres
-                .iter()
-                .map(|&(cx, cy)| {
-                    let (dx, dy) = (x as f32 + 0.5 - cx, y as f32 + 0.5 - cy);
-                    (dx * dx + dy * dy).sqrt()
-                })
-                .fold(f32::MAX, f32::min)
-        };
-        let picture = skin_field(size, 1, |x, y| (off(x, y) <= 2.5).then_some(red));
-        for smoothing in [50.0, 100.0] {
-            let got = beautified_with(&mut gpu, size, &picture, smoothing, 100.0);
-            let at = |frame: &[[f32; 4]], x: u32, y: u32| shown(frame[(y * 64 + x) as usize]);
-            let skin = |frame: &[[f32; 4]]| {
-                let around: Vec<[f32; 3]> = (4..60)
-                    .flat_map(|x| [4u32, 58].map(move |y| at(frame, x, y)))
-                    .collect();
-                let n = around.len() as f32;
-                [0, 1, 2].map(|c| around.iter().map(|p| p[c]).sum::<f32>() / n)
-            };
-            let apart_from =
-                |a: [f32; 3], b: [f32; 3]| (0..3).map(|c| (a[c] - b[c]).abs()).fold(0.0, f32::max);
-            let (sb, sa) = (skin(&picture), skin(&got));
-            let (mut worst, mut halo) = (0.0f32, 0.0f32);
-            for y in 10..54 {
-                for x in 10..54 {
-                    let d = off(x, y);
-                    if d <= 2.5 {
-                        let ratio =
-                            apart_from(at(&got, x, y), sa) / apart_from(at(&picture, x, y), sb);
-                        worst = worst.max(ratio);
-                    } else if d > 3.5 && d < 5.5 {
-                        halo = halo.max(apart_from(at(&got, x, y), sa));
+    for k in [1u32, 2] {
+        let size = (64 * k, 1080 * k);
+        for (name, colour) in [("acne", acne), ("red spots", red)] {
+            for apart in [7.0f32, 9.0] {
+                let centres = [
+                    (32.0 - apart / 2.0, 30.0),
+                    (32.0 + apart / 2.0, 30.0),
+                    (32.0, 30.0 + apart * 0.866),
+                ];
+                let off = |x: u32, y: u32| {
+                    centres
+                        .iter()
+                        .map(|&(cx, cy)| {
+                            let (dx, dy) = (x as f32 + 0.5 - cx, y as f32 + 0.5 - cy);
+                            (dx * dx + dy * dy).sqrt()
+                        })
+                        .fold(f32::MAX, f32::min)
+                };
+                let picture = skin_field(size, k, |x, y| (off(x, y) <= 2.5).then_some(colour));
+                // Whiten at its most lifts the skin round a red spot it
+                // keeps, so the bound there is looser, as the package says.
+                for (smoothing, whiten, most) in [
+                    (25.0, 100.0, 1.45f32),
+                    (50.0, 100.0, 1.45),
+                    (100.0, 100.0, 1.45),
+                    (25.0, 30.0, 1.25),
+                    (100.0, 30.0, 1.25),
+                ] {
+                    let got = beautified_with(&mut gpu, size, &picture, smoothing, whiten);
+                    let at = |frame: &[[f32; 4]], x: u32, y: u32| {
+                        shown(frame[((y * k + k / 2) * 64 * k + x * k + k / 2) as usize])
+                    };
+                    let skin = |frame: &[[f32; 4]]| {
+                        let around: Vec<[f32; 3]> = (4..60)
+                            .flat_map(|x| [4u32, 58].map(move |y| at(frame, x, y)))
+                            .collect();
+                        let n = around.len() as f32;
+                        [0, 1, 2].map(|c| around.iter().map(|p| p[c]).sum::<f32>() / n)
+                    };
+                    let apart_from = |a: [f32; 3], b: [f32; 3]| {
+                        (0..3).map(|c| (a[c] - b[c]).abs()).fold(0.0, f32::max)
+                    };
+                    let (sb, sa) = (skin(&picture), skin(&got));
+                    let (mut worst, mut halo) = (0.0f32, 0.0f32);
+                    for y in 10..54 {
+                        for x in 10..54 {
+                            let d = off(x, y);
+                            if d <= 2.5 {
+                                let ratio = apart_from(at(&got, x, y), sa)
+                                    / apart_from(at(&picture, x, y), sb);
+                                worst = worst.max(ratio);
+                            } else if d > 3.5 && d < 5.5 {
+                                halo = halo.max(apart_from(at(&got, x, y), sa));
+                            }
+                        }
+                    }
+                    let tag = format!(
+                        "x{k} {name} {apart} px apart at smoothing {smoothing}, whiten {whiten}"
+                    );
+                    eprintln!("{tag}: worst {worst:.3}, halo {halo:.4}");
+                    if worst > most {
+                        failures.push(format!("{tag}: stands out {worst} as far"));
+                    }
+                    if halo >= 0.04 {
+                        failures.push(format!("{tag}: halo {halo}"));
                     }
                 }
-            }
-            let tag = format!("{apart} px apart at {smoothing}");
-            eprintln!("{tag}: worst {worst:.3}, halo {halo:.4}");
-            if worst > 1.45 {
-                failures.push(format!("{tag}: stands out {worst} as far"));
-            }
-            if halo >= 0.04 {
-                failures.push(format!("{tag}: halo {halo}"));
             }
         }
     }
