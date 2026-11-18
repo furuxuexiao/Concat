@@ -18,12 +18,14 @@ use concat_core::animate::Track;
 use concat_core::time::Rational;
 use ffmpeg_the_third as ffmpeg;
 use ffmpeg_the_third::codec::encoder;
+use ffmpeg_the_third::codec::packet::Mut as _;
 use ffmpeg_the_third::filter;
 use ffmpeg_the_third::util::channel_layout::ChannelLayout;
 use ffmpeg_the_third::util::format::Sample;
 use ffmpeg_the_third::util::frame::audio::Audio;
 
 use crate::error::{Error, Result};
+use crate::export_formats::{AudioExportOptions, AudioFormat};
 use crate::ffi;
 
 /// The rate everything is mixed at.
@@ -700,6 +702,9 @@ pub fn mix_to_file(clips: &[AudioClip], duration: f64, destination: &Path) -> Re
 }
 
 /// [`mix_to_file`] with sound layers over the mix; see [`AudioBus`].
+///
+/// What a video's sound track is muxed from; [`mix_to_file_as`] writes
+/// the sound-only export formats at a chosen bitrate and sample rate.
 pub fn mix_to_file_with(
     clips: &[AudioClip],
     buses: &[AudioBus],
@@ -836,8 +841,186 @@ pub fn mix_to_file_with(
         clips,
         buses,
         (0.0, duration),
-        mix_format.name(),
+        (mix_format.name(), MIX_RATE),
         Some(frame_size),
+        destination,
+        |mixed| {
+            encoder
+                .send_frame(mixed)
+                .map_err(|error| ffi::fail("encode", destination, error))?;
+            drain(&mut encoder, &mut output)
+        },
+    )?;
+
+    // Flushed and closed whichever way the mix ended: an m4a without its
+    // trailer cannot be opened by the muxer.
+    encoder
+        .send_eof()
+        .map_err(|error| ffi::fail("encode", destination, error))?;
+    drain(&mut encoder, &mut output)?;
+    output
+        .write_trailer()
+        .map_err(|error| ffi::fail("write trailer", destination, error))
+}
+
+/// The sample format each export format's encoder is fed, as the
+/// encoder's [`Sample`] and the name the graph's last `aformat` lands on,
+/// so nothing converts between the two.
+fn sample_layout(format: AudioFormat) -> (Sample, &'static str) {
+    use ffmpeg::util::format::sample::Type;
+    match format {
+        AudioFormat::Wav | AudioFormat::Flac => (Sample::I16(Type::Packed), "s16"),
+        AudioFormat::Mp3 | AudioFormat::M4a => (MIX_FORMAT, "fltp"),
+    }
+}
+
+/// [`mix_to_file_with`] in the format, bitrate and sample rate `options`
+/// ask for: WAV (`pcm_s16le`), MP3 (`libmp3lame`), M4A (`aac`) or FLAC.
+///
+/// Options out of range are refused before any file is opened; an encoder
+/// the linked FFmpeg was built without is [`Error::Missing`].
+pub fn mix_to_file_as(
+    clips: &[AudioClip],
+    buses: &[AudioBus],
+    duration: f64,
+    destination: &Path,
+    options: &AudioExportOptions,
+) -> Result<()> {
+    options.validate().map_err(|error| Error::InvalidOptions {
+        detail: error.to_string(),
+    })?;
+    ffi::init();
+    // A bad chain is refused before any file is opened.
+    for chain in clips
+        .iter()
+        .map(|clip| &clip.filter_chain)
+        .chain(buses.iter().map(|bus| &bus.filter_chain))
+    {
+        validate_chain(chain)?;
+    }
+
+    // The encoder, and the file it writes into.
+    // M4A takes the same AAC encoder a video's sound track does (the
+    // platform's own where it has one); the rest have one encoder each.
+    let (encoder_name, sample, sample_name) = match options.format {
+        AudioFormat::M4a => {
+            let (name, sample) = aac_encoder()?;
+            (name, sample, sample.name())
+        }
+        format => {
+            let (sample, sample_name) = sample_layout(format);
+            (format.encoder(), sample, sample_name)
+        }
+    };
+    let codec = encoder::find_by_name(encoder_name).ok_or_else(|| Error::Missing {
+        what: "encoder",
+        name: encoder_name.to_owned(),
+    })?;
+    let rate = options.sample_rate as i32;
+    let mut output = ffmpeg::format::output(destination)
+        .map_err(|error| ffi::fail("create", destination, error))?;
+    let global_header = output
+        .format()
+        .flags()
+        .contains(ffmpeg::format::Flags::GLOBAL_HEADER);
+    let mut audio = ffmpeg::codec::Context::new_with_codec(codec)
+        .encoder()
+        .audio()
+        .map_err(|error| ffi::fail("audio encoder", destination, error))?;
+    audio.set_rate(rate);
+    audio.set_format(sample);
+    audio.set_ch_layout(ChannelLayout::STEREO);
+    if let Some(kbps) = options.effective_bitrate_kbps() {
+        audio.set_bit_rate(kbps as usize * 1000);
+    }
+    audio.set_time_base(ffmpeg::Rational::new(1, rate));
+    if global_header {
+        audio.set_flags(ffmpeg::codec::Flags::GLOBAL_HEADER);
+    }
+    let mut encoder = audio
+        .open()
+        .map_err(|error| ffi::fail("open encoder", destination, error))?;
+    // PCM takes frames of any length and says 0: the graph's own frames
+    // go through as they come rather than being cut to one sample.
+    let frame_size = match encoder.frame_size() {
+        0 => None,
+        size => Some(size),
+    };
+    {
+        let mut stream = output
+            .add_stream(codec)
+            .map_err(|error| ffi::fail("add stream", destination, error))?;
+        stream.copy_parameters_from_context(&encoder);
+        stream.set_time_base(ffmpeg::Rational::new(1, rate));
+    }
+    output
+        .write_header()
+        .map_err(|error| ffi::fail("write header", destination, error))?;
+    let stream_time_base = output
+        .stream(0)
+        .map(|stream| stream.time_base())
+        .unwrap_or(ffmpeg::Rational::new(1, rate));
+
+    let encoder_time_base = ffmpeg::Rational::new(1, rate);
+    // The samples the mix feeds, to the last one: a packet reaching past
+    // them is cut to end there and one wholly past them dropped, so the
+    // encoder's padding is trimmed as mix_to_file_with trims it.
+    let samples = (duration.max(0.0) * f64::from(rate)).round() as i64;
+    let drain = |encoder: &mut encoder::audio::Encoder,
+                 output: &mut ffmpeg::format::context::Output|
+     -> Result<()> {
+        loop {
+            let mut packet = ffmpeg::Packet::empty();
+            match encoder.receive_packet(&mut packet) {
+                Ok(()) => {
+                    if let Some(pts) = packet.pts()
+                        && packet.size() > 0
+                    {
+                        if pts >= samples {
+                            continue;
+                        }
+                        if pts + packet.duration() > samples {
+                            packet.set_duration(samples - pts);
+                        }
+                    }
+                    packet.set_stream(0);
+                    packet.rescale_ts(encoder_time_base, stream_time_base);
+                    // FLAC ends on an empty packet carrying only the final
+                    // STREAMINFO (sample count, MD5) as side data, which
+                    // the wrapper's writers refuse as empty; libavformat
+                    // takes it, and the muxer puts it in the header at the
+                    // trailer.
+                    let written = if packet.size() == 0 {
+                        // SAFETY: both pointers are live for the call and
+                        // the packet is owned here; libavformat takes its
+                        // reference and leaves the packet blank.
+                        match unsafe {
+                            ffmpeg::sys::av_interleaved_write_frame(
+                                output.as_mut_ptr(),
+                                packet.as_mut_ptr(),
+                            )
+                        } {
+                            0 => Ok(()),
+                            code => Err(ffmpeg::Error::from(code)),
+                        }
+                    } else {
+                        packet.write_interleaved(output)
+                    };
+                    written.map_err(|error| ffi::fail("write packet", destination, error))?;
+                }
+                Err(ffmpeg::Error::Eof) => return Ok(()),
+                Err(error) if ffi::is_again(&error) => return Ok(()),
+                Err(error) => return Err(ffi::fail("encode", destination, error)),
+            }
+        }
+    };
+
+    run_mix(
+        clips,
+        buses,
+        (0.0, duration),
+        (sample_name, options.sample_rate),
+        frame_size,
         destination,
         |mixed| {
             encoder
@@ -886,7 +1069,7 @@ pub fn mix_pcm(
         clips,
         buses,
         (from, to),
-        "s16",
+        ("s16", MIX_RATE),
         None,
         Path::new("the mix"),
         |mixed| {
@@ -900,19 +1083,20 @@ pub fn mix_pcm(
 }
 
 /// Opens the clips heard inside `window`, builds their graph and runs it,
-/// handing `take` every frame of the mix in `format` (stereo, at
-/// [`MIX_RATE`]) until the window's length has been taken. `frame_size`,
+/// handing `take` every frame of the mix in `output`'s sample format and
+/// rate (stereo) until the window's length has been taken. `frame_size`,
 /// when given, is what each frame is cut to - an encoder's frame.
 fn run_mix(
     clips: &[AudioClip],
     buses: &[AudioBus],
     window: (f64, f64),
-    format: &str,
+    output: (&str, u32),
     frame_size: Option<u32>,
     destination: &Path,
     mut take: impl FnMut(&Audio) -> Result<()>,
 ) -> Result<()> {
     let (from, to) = window;
+    let (format, rate) = output;
     let missing = |name: &str| Error::Missing {
         what: "filter",
         name: name.to_owned(),
@@ -1026,7 +1210,7 @@ fn run_mix(
     // The plan's `[out]` lands on the reader's own format before the sink.
     let graph_spec = mix_graph_from(&members, &heard, from, buses)?;
     let spec = format!(
-        "{graph_spec};[out]aformat=sample_fmts={format}:sample_rates={MIX_RATE}:channel_layouts=stereo[sink]"
+        "{graph_spec};[out]aformat=sample_fmts={format}:sample_rates={rate}:channel_layouts=stereo[sink]"
     );
     let mut parser = graph
         .input("sink", 0)
@@ -1052,7 +1236,7 @@ fn run_mix(
     // timestamps are not to be trusted for the cut - `amix` drops them once
     // an input ends early - so the count of what has been taken is the
     // whole of the decision, and the last frame is shortened to land on it.
-    let total_samples = ((to - from).max(0.0) * f64::from(MIX_RATE)).round() as i64;
+    let total_samples = ((to - from).max(0.0) * f64::from(rate)).round() as i64;
     let mut written_samples: i64 = 0;
 
     // Feed the sources round-robin and drain the sink after every push, so
