@@ -105,6 +105,17 @@ sha256 = "d14cea55793cc531a5875f5f4da08207d1c5ab9292e8e0099a104eecb014fcc0"
 licence = "MIT"
 upstream = "https://huggingface.co/csukuangfj/sherpa-onnx-spleeter-2stems-fp16/resolve/93ba771920ade509f8cbd6825b1a90856c797e08/accompaniment.fp16.onnx"
 
+# Frame interpolation: RIFE v4.9 from hzwer's Practical-RIFE (MIT,
+# Copyright (c) 2021 hzwer). Cutout family for the same reason as Enhance.
+[[model]]
+id = "interpolate-rife"
+family = "cutout"
+file = "rife49.onnx"
+bytes = 21458882
+sha256 = "76e4cef9ab42fa7dd4e8f6e4aba47462051e3faa969e4bca6479784fbab0ac6f"
+licence = "MIT"
+upstream = "https://huggingface.co/edgetools/rife/resolve/321b593c5f36c26f5b08fa2838dcf5eece382fa0/rife49.onnx"
+
 # ── Text to speech ───────────────────────────────────────────────────────
 # Kokoro and Pocket TTS left the app with sherpa-onnx (e63756df). Their
 # files stay on the mirror, which nothing prunes, because 0.2.8 and older

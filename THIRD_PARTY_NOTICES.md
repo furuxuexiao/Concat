@@ -250,6 +250,14 @@ own accelerator behind it where the runtime has one: CoreML on macOS and
 iOS, NNAPI on Android. How each platform carries the runtime is under
 "ONNX Runtime" above.
 
+## The frame interpolation model
+
+Frame interpolation runs RIFE v4.9 from Practical-RIFE by hzwer
+(https://github.com/hzwer/Practical-RIFE, MIT, Copyright (c) 2021 hzwer),
+in the ONNX export published at https://huggingface.co/edgetools/rife,
+downloaded on first use into `cutout-models` and run by ONNX Runtime like
+the models above.
+
 ## The model mirror
 
 Every downloaded model named above is mirrored onto a release of Concat's own
@@ -261,7 +269,7 @@ mirror.
 
 Mirroring is redistribution, and each model keeps the licence it arrived
 under - Apache-2.0 for SlimSAM and IS-Net, BSD-3-Clause for Real-ESRGAN,
-MIT for Chatterbox Turbo and the whisper conversions, GPL-3.0 for Robust
+MIT for RIFE, Chatterbox Turbo and the whisper conversions, GPL-3.0 for Robust
 Video Matting. The Kokoro (Apache-2.0) and Pocket TTS (CC-BY-4.0) bundles
 stay on the mirror for releases up to 0.2.8, which download them. Those terms are met
 by the attributions above and by the licence files each mirrored archive

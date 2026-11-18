@@ -42,6 +42,9 @@ pub enum ModelId {
     SpleeterVocals,
     /// Spleeter's accompaniment network: everything but the singing.
     SpleeterAccompaniment,
+    /// RIFE v4.9 (Practical-RIFE): the frame between two frames, what
+    /// smooth slow motion and frame-rate conversion are made of.
+    Interpolate,
 }
 
 /// One model as the table describes it.
@@ -65,7 +68,7 @@ pub struct ModelSpec {
 }
 
 /// Every downloadable model.
-pub const MODELS: [ModelSpec; 7] = [
+pub const MODELS: [ModelSpec; 8] = [
     ModelSpec {
         id: ModelId::Person,
         file: "rvm-mobilenetv3.onnx",
@@ -125,6 +128,15 @@ pub const MODELS: [ModelSpec; 7] = [
         sha256: "d14cea55793cc531a5875f5f4da08207d1c5ab9292e8e0099a104eecb014fcc0",
         licence: "MIT",
     },
+    // Practical-RIFE v4.9 by hzwer (MIT), the ONNX export edgetools publishes.
+    ModelSpec {
+        id: ModelId::Interpolate,
+        file: "rife49.onnx",
+        upstream: "https://huggingface.co/edgetools/rife/resolve/321b593c5f36c26f5b08fa2838dcf5eece382fa0/rife49.onnx",
+        bytes: 21_458_882,
+        sha256: "76e4cef9ab42fa7dd4e8f6e4aba47462051e3faa969e4bca6479784fbab0ac6f",
+        licence: "MIT",
+    },
 ];
 
 impl ModelId {
@@ -146,6 +158,7 @@ impl ModelId {
             ModelId::Enhance => "realesr-general-x4v3",
             ModelId::SpleeterVocals => "spleeter-2stems-vocals",
             ModelId::SpleeterAccompaniment => "spleeter-2stems-accompaniment",
+            ModelId::Interpolate => "rife-v4.9",
         }
     }
 }

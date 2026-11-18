@@ -49,13 +49,16 @@ pub mod apply;
 pub mod brush;
 pub mod compact;
 pub mod enhance;
+pub mod interpolate;
 pub mod mask;
 pub mod models;
 pub mod onnx;
+pub mod reframe;
 #[cfg(feature = "infer")]
 pub mod runtime;
 #[cfg(feature = "infer")]
 pub mod segment;
+pub mod shots;
 pub mod stabilize;
 pub mod store;
 pub mod strokes;
@@ -65,6 +68,8 @@ pub use apply::{Mapping, cut, highlight};
 pub use brush::{Brush, Embedding};
 #[cfg(feature = "infer")]
 pub use enhance::Enhancer;
+#[cfg(feature = "infer")]
+pub use interpolate::Interpolator;
 pub use mask::Mask;
 pub use models::ModelId;
 #[cfg(feature = "infer")]
