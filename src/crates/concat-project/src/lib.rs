@@ -5675,6 +5675,7 @@ mod tests {
             original: original.clone(),
             copy: "m-copy".into(),
             on: true,
+            offset: 0.0,
         };
         let set = editor
             .apply(Command::SetClipInterpolated {
@@ -5710,6 +5711,7 @@ mod tests {
                 clip_id: clip.clone(),
                 item: item("/a-reversed.mp4"),
                 source_start: None,
+                offset: 0.0,
                 enhanced: false,
             })
             .expect("replaces");
@@ -5735,6 +5737,7 @@ mod tests {
             original: "m1".into(),
             copy: "m2".into(),
             on: false,
+            offset: 0.0,
         });
         let back: crate::model::Clip =
             serde_json::from_str(&serde_json::to_string(&clip).expect("writes")).expect("reads");
