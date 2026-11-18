@@ -11,3 +11,11 @@ description = "A cool, sterile steel-and-teal grade, saturation held back."
 [wgsl]
 entry = "effect.wgsl"
 space = "display"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "科幻"
+category = "电影感"
+description = "冷峻、无菌感的钢灰与青色调，饱和度克制。"
+keywords = ["未来", "冷色"]

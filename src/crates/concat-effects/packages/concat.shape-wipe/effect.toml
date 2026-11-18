@@ -33,3 +33,18 @@ entry = "effect.wgsl"
 
 [card]
 progress = 0.55
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "形状擦除"
+category = "擦除"
+description = "下一个镜头透过从中心扩大的圆形、爱心或星形显现，直到铺满画面。"
+keywords = ["爱心", "星形"]
+
+[i18n.zh-Hans.params.shape]
+label = "形状"
+labels = ["圆形", "爱心", "星形"]
+
+[i18n.zh-Hans.params.softness]
+label = "柔和度"

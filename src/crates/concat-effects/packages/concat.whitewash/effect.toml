@@ -30,3 +30,17 @@ unit = "%"
 [wgsl]
 entry = "effect.wgsl"
 space = "display"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "白墙"
+category = "日常"
+description = "明亮的哑光：白色柔和偏冷，黑色明显提亮，色彩安静。白色房间般干净的极简色调。"
+keywords = ["奶白", "极简"]
+
+[i18n.zh-Hans.params.matte]
+label = "哑光"
+
+[i18n.zh-Hans.params.cool]
+label = "冷调"

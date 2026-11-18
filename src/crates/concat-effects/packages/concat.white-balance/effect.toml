@@ -35,3 +35,17 @@ entry = "effect.wgsl"
 # At its defaults the picture is as shot; the card shows a warm light.
 [card]
 params = { temperature = 4500 }
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "白平衡"
+category = "色彩"
+description = "让画面像在更暖或更冷的光下拍摄，并偏向品红或绿色，如同人眼适应光线。"
+keywords = ["色温", "色调"]
+
+[i18n.zh-Hans.params.temperature]
+label = "色温"
+
+[i18n.zh-Hans.params.tint]
+label = "色调"

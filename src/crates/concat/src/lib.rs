@@ -1055,7 +1055,7 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
         state.handle(Msg::Media(MediaMsg::ClearPicks));
     }));
     editor.on_library_add_text(on_window!(|state, preset: SharedString| {
-        state.place_at_playhead(&format!("text:{preset}:Title"));
+        state.place_at_playhead(&format!("text:{preset}:{}", i18n::t("studio.titleClip")));
     }));
     // A figure from the Stickers page, named in the interface's language.
     editor.on_library_add_shape(on_window!(

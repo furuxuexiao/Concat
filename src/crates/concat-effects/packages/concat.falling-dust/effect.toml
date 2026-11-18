@@ -30,3 +30,17 @@ unit = "%"
 [wgsl]
 entry = "effect.wgsl"
 space = "display"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "落尘"
+category = "复古"
+description = "温暖的褪色中有尘埃缓缓飘落，一角带有漏光。CPU 只显示褪色和少许噪点。"
+keywords = ["复古", "漏光"]
+
+[i18n.zh-Hans.params.dust]
+label = "尘埃"
+
+[i18n.zh-Hans.params.leak]
+label = "漏光"

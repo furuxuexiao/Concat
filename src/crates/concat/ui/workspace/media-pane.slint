@@ -128,8 +128,8 @@ component LibraryTab inherits Rectangle {
     drag := DragArea {
         // The one style there is, so the payload names no preset — only what
         // the drop should build.
-        data: Payload.of("text:default:Title");
-        drag-image: Payload.preview("text:default:Title");
+        data: Payload.of("text:default:" + I18n.t("studio.titleClip"));
+        drag-image: Payload.preview("text:default:" + I18n.t("studio.titleClip"));
         drag-image-offset-x: -8;
         drag-image-offset-y: -4;
         allow-copy: true;
@@ -567,7 +567,7 @@ export component MediaCard inherits Rectangle {
                         x: (parent.width - self.width) / 2;
                         y: (parent.height - self.height) / 2;
                         text: root.item.kind == MediaKind.image
-                            ? (root.item.format == "" ? "still" : root.item.format)
+                            ? (root.item.format == "" ? I18n.t("mediaPane.stillImage") : root.item.format)
                             : Fmt.short-duration(root.item.duration);
                         color: Theme.on-scrim;
                         font-family: Theme.font-technical;
@@ -1395,6 +1395,20 @@ export component CategoryPillBar inherits Rectangle {
     ];
     in property <string> current: "All";
     callback picked(category: string);
+    /// A pill's words: `categories` are the shelves' English names, which
+    /// the packages and the library match by; the pill reads in the
+    /// interface's language.
+    function label-of(cat: string) -> string {
+        return cat == "All" ? I18n.t("common.all")
+            : cat == "Featured" ? I18n.t("mediaPane.shelfFeatured")
+            : cat == "Retro & Film" ? I18n.t("mediaPane.shelfRetroFilm")
+            : cat == "Optical & Lens" ? I18n.t("mediaPane.shelfOpticalLens")
+            : cat == "Distortion & Glitch" ? I18n.t("mediaPane.shelfDistortionGlitch")
+            : cat == "Shake & Motion" ? I18n.t("mediaPane.shelfShakeMotion")
+            : cat == "Party & Club" ? I18n.t("mediaPane.shelfPartyClub")
+            : cat == "Light & Shadow" ? I18n.t("mediaPane.shelfLightShadow")
+            : cat;
+    }
 
     height: 30px;
     clip: true;
@@ -1433,7 +1447,7 @@ export component CategoryPillBar inherits Rectangle {
                 dragged(dx) => {
                     root.offset = Math.max(-root.max-scroll, Math.min(0px, root.press-offset + dx));
                 }
-                text: cat;
+                text: root.label-of(cat);
                 selected: root.current == cat || (root.current == "" && cat == "All" && Library.view(1).group < 0);
                 clicked => {
                     root.picked(cat);
@@ -2515,7 +2529,7 @@ export component MediaPane inherits Rectangle {
 
                             Text {
                                 horizontal-stretch: 1;
-                                text: "\{root.selected-count} selected";
+                                text: I18n.t1("mediaPane.selectedCount", "\{root.selected-count}");
                                 color: Theme.fg-muted;
                                 font-size: Theme.fs-sm;
                                 vertical-alignment: center;

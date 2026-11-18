@@ -57,3 +57,27 @@ default = 40
 
 [wgsl]
 entry = "effect.wgsl"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "抖动"
+category = "震动"
+description = "停不下来的镜头：手持晃动、紧张的抖动或地震，带有自己的旋转和拖影。"
+keywords = ["晃动", "震屏", "手持"]
+
+[i18n.zh-Hans.params.style]
+label = "样式"
+labels = ["手持", "抖动", "地震"]
+
+[i18n.zh-Hans.params.amount]
+label = "强度"
+
+[i18n.zh-Hans.params.speed]
+label = "速度"
+
+[i18n.zh-Hans.params.rotation]
+label = "旋转"
+
+[i18n.zh-Hans.params.blur]
+label = "动态模糊"

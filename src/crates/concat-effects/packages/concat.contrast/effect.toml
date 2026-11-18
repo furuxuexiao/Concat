@@ -25,3 +25,13 @@ entry = "effect.wgsl"
 # At its default the picture is as shot; the card shows a push.
 [card]
 params = { amount = 40 }
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "对比度"
+category = "色彩"
+description = "以中灰为中心按档位增减对比度，保留白色以上的高光，黑色不会死黑。"
+
+[i18n.zh-Hans.params.amount]
+label = "对比度"

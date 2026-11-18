@@ -20,3 +20,14 @@ default = 60
 [transition]
 fallback = "cross-fade"
 entry = "effect.wgsl"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "RGB 分离"
+category = "故障"
+description = "红、绿、蓝三色在切点处撕开，各自在不同时刻切换镜头，再重新合拢。"
+keywords = ["色差", "故障"]
+
+[i18n.zh-Hans.params.spread]
+label = "扩散"

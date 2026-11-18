@@ -25,3 +25,14 @@ entry = "effect.wgsl"
 # At its default the picture is as shot; the card shows a stop up.
 [card]
 params = { stops = 1 }
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "曝光"
+category = "色彩"
+description = "按光圈档位调亮或调暗，像镜头那样，保留高光。"
+keywords = ["亮度"]
+
+[i18n.zh-Hans.params.stops]
+label = "曝光"

@@ -500,7 +500,7 @@ impl Studio {
                     .effects
                     .iter()
                     .filter_map(|id| catalogue.get(id))
-                    .map(|package| package.manifest.effect.name.clone())
+                    .map(|package| package.manifest.name_in(&crate::i18n::current()).to_owned())
                     .collect();
                 VoiceCardData {
                     id: format!("style-{row}").into(),

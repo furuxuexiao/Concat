@@ -30,3 +30,17 @@ unit = "%"
 [wgsl]
 entry = "effect.wgsl"
 space = "display"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "复古"
+category = "复古"
+description = "七十年代的照片：黑白都带哑光，色彩褪淡，绿色泛黄，柔和的暗角。"
+keywords = ["怀旧", "年代感"]
+
+[i18n.zh-Hans.params.age]
+label = "年代感"
+
+[i18n.zh-Hans.params.tint]
+label = "色调"

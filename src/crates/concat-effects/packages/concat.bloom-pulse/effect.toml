@@ -40,3 +40,17 @@ shrink = ["4", "1"]
 [[wgsl.pass]]
 target = "down"
 shrink = ["4", "4"]
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "光晕脉冲"
+category = "光效"
+description = "高光上柔和的光晕，有节奏地一明一暗。"
+keywords = ["呼吸", "发光"]
+
+[i18n.zh-Hans.params.amount]
+label = "强度"
+
+[i18n.zh-Hans.params.speed]
+label = "速度"

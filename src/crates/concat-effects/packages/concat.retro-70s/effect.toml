@@ -11,3 +11,11 @@ description = "A heavy warm fade with a yellowed, sun-bleached cast."
 [wgsl]
 entry = "effect.wgsl"
 space = "display"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "复古 70 年代"
+category = "胶片"
+description = "厚重温暖的褪色，带泛黄、被日光晒褪的色偏。"
+keywords = ["七十年代", "怀旧"]

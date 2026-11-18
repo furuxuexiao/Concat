@@ -18,3 +18,14 @@ unit = "%"
 
 [ffmpeg]
 chain = "volume={fixed(1 + drive / 100 * 7, 2)},acrusher=bits=6:mode=lin:mix={fixed(drive / 100 * 0.7, 2)},alimiter=limit=0.85:level=false"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "失真"
+category = "音色"
+description = "强烈过载、削波的声音。"
+keywords = ["过载", "破音"]
+
+[i18n.zh-Hans.params.drive]
+label = "失真度"

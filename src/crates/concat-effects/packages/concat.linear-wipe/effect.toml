@@ -31,3 +31,18 @@ default = 20
 [transition]
 fallback = "cross-fade"
 entry = "effect.wgsl"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "线性擦除"
+category = "擦除"
+description = "一条直线划过画面，身后留下下一个镜头。"
+keywords = ["擦除", "划变"]
+
+[i18n.zh-Hans.params.direction]
+label = "方向"
+labels = ["从左到右", "从右到左", "从上到下", "从下到上"]
+
+[i18n.zh-Hans.params.softness]
+label = "柔和度"

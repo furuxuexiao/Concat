@@ -47,3 +47,20 @@ target = "fine"
 
 [[wgsl.pass]]
 target = "middle"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "径向模糊"
+category = "模糊"
+description = "朝一个点冲过去，就像拍摄时镜头在变焦。"
+keywords = ["缩放模糊", "变焦"]
+
+[i18n.zh-Hans.params.amount]
+label = "强度"
+
+[i18n.zh-Hans.params.x]
+label = "中心 X"
+
+[i18n.zh-Hans.params.y]
+label = "中心 Y"

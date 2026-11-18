@@ -22,3 +22,15 @@ max = 3
 [transition]
 fallback = "cross-fade"
 entry = "effect.wgsl"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "推移"
+category = "滑动"
+description = "下一个镜头把上一个推出画面，两者一起移动，全速时带有动态模糊。"
+keywords = ["推入", "滑动"]
+
+[i18n.zh-Hans.params.direction]
+label = "方向"
+labels = ["向左", "向右", "向上", "向下"]

@@ -9,3 +9,8 @@ fontFamily = "Staatliches"
 fontWeight = 400
 fontSize = 0.12
 tracking = 0.04
+
+# Simplified Chinese: what the Text page shows when the interface is in
+# 简体中文.
+[i18n.zh-Hans]
+name = "模板喷字"

@@ -18,3 +18,14 @@ unit = "%"
 
 [ffmpeg]
 chain = "highpass=f=80,afftdn=nf={fixed(0 - 25 - amount / 100 * 20, 1)}:nr={fixed(6 + amount / 100 * 18, 1)},deesser=i={fixed(amount / 100 * 0.5, 2)},acompressor=threshold={fixed(0.5 - amount / 100 * 0.3, 2)}:ratio={fixed(2 + amount / 100 * 2, 1)}:attack=15:release=120,alimiter=limit=0.95"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "人声增强"
+category = "人声优化"
+description = "清除录音中的房间声：低频隆隆声、嘶声、齿音和忽大忽小的音量。"
+keywords = ["人声", "美化"]
+
+[i18n.zh-Hans.params.amount]
+label = "强度"

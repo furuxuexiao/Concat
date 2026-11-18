@@ -1066,7 +1066,7 @@ impl Studio {
         let transition = clip.transition_in.as_ref().expect("held to one");
         let name = Catalogue::builtin()
             .get(&transition.id)
-            .map(|package| package.manifest.effect.name.clone())
+            .map(|package| package.manifest.name_in(&crate::i18n::current()).to_owned())
             .unwrap_or_else(|| label_of(&transition.id));
         crate::ui::SelectedTransitionData {
             present: true,
@@ -1105,8 +1105,9 @@ impl Studio {
                         .iter()
                         .enumerate()
                         .map(|(index, at)| {
-                            param
-                                .labels
+                            package
+                                .manifest
+                                .labels_in(param, &crate::i18n::current())
                                 .get(index)
                                 .cloned()
                                 .unwrap_or_else(|| format!("{at}"))
@@ -1120,7 +1121,10 @@ impl Studio {
                         .unwrap_or(0);
                     choices.push(crate::ui::TransitionChoiceData {
                         key: param.key.as_str().into(),
-                        label: param.label.as_str().into(),
+                        label: package
+                            .manifest
+                            .label_in(param, &crate::i18n::current())
+                            .into(),
                         options: ModelRc::new(VecModel::from(options)),
                         values: ModelRc::new(VecModel::from(
                             param.values.iter().map(|at| *at as f32).collect::<Vec<_>>(),
@@ -1139,7 +1143,10 @@ impl Studio {
                     knobs.push(AppliedParamData {
                         entry: 0,
                         key: param.key.as_str().into(),
-                        label: param.label.as_str().into(),
+                        label: package
+                            .manifest
+                            .label_in(param, &crate::i18n::current())
+                            .into(),
                         group: "".into(),
                         unit: param.unit.as_str().into(),
                         min: param.min as f32,
@@ -1242,7 +1249,7 @@ impl Studio {
                 .transition_in
                 .as_ref()
                 .and_then(|transition| Catalogue::builtin().get(&transition.id))
-                .map(|package| package.manifest.effect.name.clone())
+                .map(|package| package.manifest.name_in(&crate::i18n::current()).to_owned())
                 .unwrap_or_default()
                 .into(),
             transition_duration: clip
@@ -2016,9 +2023,7 @@ impl Studio {
             self.text_presets
                 .iter()
                 .filter(|preset| {
-                    query.is_empty()
-                        || preset.name.to_lowercase().contains(&query)
-                        || preset.language.to_lowercase().contains(&query)
+                    preset.matches_query(&query) || preset.language.to_lowercase().contains(&query)
                 })
                 .map(preset_card)
                 .collect(),
@@ -2925,7 +2930,7 @@ pub(crate) fn preset_card(preset: &TextPreset) -> TextPresetData {
     let plate = colour_of(&preset.style.background);
     TextPresetData {
         id: preset.id.as_str().into(),
-        name: preset.name.as_str().into(),
+        name: preset.name_in(&crate::i18n::current()).into(),
         language: preset.language.as_str().into(),
         sample: preset.sample.as_str().into(),
         family: preset.style.font_family.trim_matches('"').into(),

@@ -23,3 +23,15 @@ max = 1
 fallback = "cross-fade"
 xfade = "zoomin"
 entry = "effect.wgsl"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "推拉"
+category = "缩放"
+description = "一次不间断的推镜：推进上一个镜头，再推出进入下一个镜头，速度带出拖影。"
+keywords = ["拉镜", "推镜", "缩放"]
+
+[i18n.zh-Hans.params.direction]
+label = "方向"
+labels = ["推近", "拉远"]

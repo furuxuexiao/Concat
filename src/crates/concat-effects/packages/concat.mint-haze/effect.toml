@@ -21,3 +21,14 @@ unit = "%"
 [wgsl]
 entry = "effect.wgsl"
 space = "display"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "薄荷雾"
+category = "风格化"
+description = "中间调和白色带柔和的绿，色彩低饱和，轻微哑光。流行的色调，也足够温和适合人脸。"
+keywords = ["薄荷绿", "清新"]
+
+[i18n.zh-Hans.params.amount]
+label = "强度"

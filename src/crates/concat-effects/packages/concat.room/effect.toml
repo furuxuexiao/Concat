@@ -22,3 +22,14 @@ let = [
   "scale = 0.4 + (size / 100) * 1.6",
 ]
 chain = "aecho=0.8:0.88:{round(23 * scale)}|{round(41 * scale)}|{round(67 * scale)}|{round(97 * scale)}:0.320|0.240|0.170|0.110"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "房间"
+category = "空间"
+description = "房间里的早期反射声。"
+keywords = ["混响"]
+
+[i18n.zh-Hans.params.size]
+label = "空间大小"

@@ -30,3 +30,17 @@ unit = "%"
 [wgsl]
 entry = "effect.wgsl"
 space = "display"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "粉雾"
+category = "风格化"
+description = "低对比，亮部带粉色和薰衣草紫，整体覆盖柔和光晕。最梦幻的一款。"
+keywords = ["粉色", "梦幻"]
+
+[i18n.zh-Hans.params.haze]
+label = "朦胧"
+
+[i18n.zh-Hans.params.blush]
+label = "粉调"

@@ -21,3 +21,14 @@ let = [
   "ratio = pow(2, semitones / 12)",
 ]
 chain = "aresample=48000,asetrate={fixed(48000 * ratio, 6)},aresample=48000,atempo={fixed(1 / ratio, 8)}"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "变调"
+category = "变声"
+description = "按半音升高或降低音调，时长不变。"
+keywords = ["音调", "升降调"]
+
+[i18n.zh-Hans.params.semitones]
+label = "半音"

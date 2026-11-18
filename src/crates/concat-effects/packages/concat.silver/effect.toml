@@ -11,3 +11,11 @@ description = "A cool, soft black and white with the shadows lifted, like a silv
 [wgsl]
 entry = "effect.wgsl"
 space = "display"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "银盐"
+category = "黑白"
+description = "冷调、柔和的黑白，阴影提亮，像银盐相纸。"
+keywords = ["黑白"]

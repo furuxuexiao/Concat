@@ -295,7 +295,7 @@ impl Studio {
         let (style, offset_y, font) = match self.text_presets.iter().find(|held| held.id == preset)
         {
             Some(found) => (
-                found.style.clone(),
+                found.style_in(&crate::i18n::current()),
                 found.offset_y,
                 presets::install_font(&self.host.dirs, found),
             ),
@@ -454,7 +454,7 @@ impl Studio {
             return;
         }
         if !video && first.kind == model::ClipKind::Image {
-            self.notify("A still has no sound to filter", true);
+            self.notify(&t("studio.stillHasNoSound"), true);
             return;
         }
         let mut commands: Vec<Command> = ids
@@ -578,7 +578,7 @@ impl Studio {
     pub fn apply_transition(&mut self, id: &str) {
         let label = Catalogue::builtin()
             .get(id)
-            .map(|package| package.manifest.effect.name.clone())
+            .map(|package| package.manifest.name_in(&crate::i18n::current()).to_owned())
             .unwrap_or_default();
         let duration = f64::from(TRANSITION_DURATION);
         let at = match self.transition_cut() {

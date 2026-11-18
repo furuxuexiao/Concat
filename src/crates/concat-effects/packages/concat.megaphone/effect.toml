@@ -18,3 +18,14 @@ step = 0.5
 
 [ffmpeg]
 chain = "highpass=f=550,lowpass=f=2800,equalizer=f=1600:t=q:w=2.0:g={fixed(3 + drive * 0.8, 2)},alimiter=limit=0.88"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "扩音器"
+category = "变声"
+description = "手持喇叭刺耳、集中在中频的喊话声。"
+keywords = ["喇叭", "喊话"]
+
+[i18n.zh-Hans.params.drive]
+label = "失真度"

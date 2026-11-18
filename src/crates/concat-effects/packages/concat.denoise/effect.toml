@@ -18,3 +18,14 @@ unit = "%"
 
 [ffmpeg]
 chain = "afftdn=nf={fixed(0 - 20 - strength / 100 * 30, 1)}:nr={fixed(6 + strength / 100 * 30, 1)}"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "降噪"
+category = "人声优化"
+description = "去除人声下方的嗡嗡声和嘶嘶声。"
+keywords = ["去噪", "噪音"]
+
+[i18n.zh-Hans.params.strength]
+label = "强度"

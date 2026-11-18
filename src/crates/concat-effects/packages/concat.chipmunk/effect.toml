@@ -22,3 +22,14 @@ let = [
   "ratio = pow(2, pitch / 12)",
 ]
 chain = "aresample=48000,asetrate={fixed(48000 * ratio, 6)},aresample=48000,atempo={fixed(1 / ratio, 8)},highpass=f=120,alimiter=limit=0.94"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "花栗鼠"
+category = "变声"
+description = "更高、更尖的声音。"
+keywords = ["变声", "萌音"]
+
+[i18n.zh-Hans.params.pitch]
+label = "音调"

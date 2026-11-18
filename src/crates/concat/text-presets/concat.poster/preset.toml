@@ -9,3 +9,8 @@ fontFamily = "Bebas Neue"
 fontWeight = 400
 fontSize = 0.18
 tracking = 0.03
+
+# Simplified Chinese: what the Text page shows when the interface is in
+# 简体中文.
+[i18n.zh-Hans]
+name = "海报"

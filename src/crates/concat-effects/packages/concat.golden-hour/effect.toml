@@ -30,3 +30,17 @@ unit = "K"
 [wgsl]
 entry = "effect.wgsl"
 space = "display"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "黄金时刻"
+category = "日常"
+description = "傍晚的光线：保持亮度的暖色平衡，高光偏橙，阴影带一丝品红，黑色略微提亮。"
+keywords = ["夕阳", "暖色"]
+
+[i18n.zh-Hans.params.glow]
+label = "光晕"
+
+[i18n.zh-Hans.params.warmth]
+label = "暖度"

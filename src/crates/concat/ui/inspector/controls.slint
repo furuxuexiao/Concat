@@ -98,7 +98,7 @@ export global InspectorFmt {
                 : (v > 0 ? "+" : "") + InspectorFmt.fixed1(v) + " dB";
         }
         if (fmt == ParamFormat.height) {
-            return InspectorFmt.fixed1(v * 100) + "% of height";
+            return I18n.t1("controls.percentOfHeight", InspectorFmt.fixed1(v * 100));
         }
         if (fmt == ParamFormat.outline) {
             return v == 0 ? I18n.t("common.none") : InspectorFmt.fixed1(v * 100) + "%";

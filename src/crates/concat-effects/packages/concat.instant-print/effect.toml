@@ -30,3 +30,17 @@ unit = "%"
 [wgsl]
 entry = "effect.wgsl"
 space = "display"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "拍立得"
+category = "复古"
+description = "拍立得相纸：奶油色哑光、温暖高光、阴影里渗入青色，四角略微柔化。"
+keywords = ["宝丽来", "相纸"]
+
+[i18n.zh-Hans.params.fade]
+label = "褪色"
+
+[i18n.zh-Hans.params.warmth]
+label = "暖度"

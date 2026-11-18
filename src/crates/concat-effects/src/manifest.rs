@@ -9,6 +9,8 @@
 //! what the engine runs. A manifest that declares a parameter its backend
 //! never reads, or reads one it never declares, is rejected at load.
 
+use std::collections::BTreeMap;
+
 use serde::Deserialize;
 
 use crate::Error;
@@ -65,6 +67,66 @@ pub struct Manifest {
     /// become this one's; see [`Replaces`].
     #[serde(default, rename = "replaces")]
     pub replaces: Vec<Replaces>,
+    /// The package's words in other languages, by the interface's locale
+    /// code: `[i18n.zh-Hans]`. See [`Words`].
+    #[serde(default)]
+    pub i18n: BTreeMap<String, Words>,
+}
+
+/// An `[i18n.<code>]` table: what the window shows of the package when
+/// the interface is in that language. The English of `[effect]` and
+/// `[[param]]` stays the package's own words - what a project, the log
+/// and the engine know it by - and anything a table leaves out reads in
+/// English. A package carries its translations itself, as it carries
+/// everything else about itself, so one written by anyone can bring its
+/// own and no locale of the app's has to list it.
+///
+/// ```toml
+/// [i18n.zh-Hans]
+/// name = "高斯模糊"
+/// category = "模糊"
+/// description = "柔和均匀的模糊。"
+/// keywords = ["虚化"]            # more words the library's search finds it by
+///
+/// [i18n.zh-Hans.params.radius]  # by the param's key
+/// label = "半径"
+/// group = "..."                 # optional, as `group`
+/// labels = ["...", "..."]       # an enum's, in `values` order
+/// ```
+#[derive(Deserialize, Clone, PartialEq, Debug, Default)]
+#[serde(deny_unknown_fields)]
+pub struct Words {
+    /// What the catalogue card says.
+    #[serde(default)]
+    pub name: Option<String>,
+    /// The shelf's name. Shelves are still told apart by the English, so a
+    /// package of anyone's lands on the built-ins' shelf of that name.
+    #[serde(default)]
+    pub category: Option<String>,
+    /// The tooltip's sentence.
+    #[serde(default)]
+    pub description: Option<String>,
+    /// More words the library's search finds the package by.
+    #[serde(default)]
+    pub keywords: Vec<String>,
+    /// The knobs' words, by key.
+    #[serde(default)]
+    pub params: BTreeMap<String, ParamWords>,
+}
+
+/// One knob's words in an `[i18n.<code>]` table.
+#[derive(Deserialize, Clone, PartialEq, Debug, Default)]
+#[serde(deny_unknown_fields)]
+pub struct ParamWords {
+    /// What the control is labelled.
+    #[serde(default)]
+    pub label: Option<String>,
+    /// The subhead it sits under.
+    #[serde(default)]
+    pub group: Option<String>,
+    /// An enum's choices, in `values` order.
+    #[serde(default)]
+    pub labels: Vec<String>,
 }
 
 /// A `[[replaces]]` table: a retired package this one stands in for. A
@@ -479,6 +541,90 @@ fn is_id_segment(text: &str) -> bool {
 }
 
 impl Manifest {
+    /// The package's words in `language`, a locale code such as `zh-Hans`:
+    /// its own table for that code, matched without regard to case. None
+    /// for English, or a language the package does not speak.
+    pub fn words(&self, language: &str) -> Option<&Words> {
+        self.i18n.get(language).or_else(|| {
+            self.i18n
+                .iter()
+                .find(|(code, _)| code.eq_ignore_ascii_case(language))
+                .map(|(_, words)| words)
+        })
+    }
+
+    /// The card's name in `language`, else the English.
+    pub fn name_in(&self, language: &str) -> &str {
+        self.words(language)
+            .and_then(|words| words.name.as_deref())
+            .unwrap_or(&self.effect.name)
+    }
+
+    /// The shelf's name in `language`, else the English (empty for none).
+    pub fn category_in(&self, language: &str) -> &str {
+        self.words(language)
+            .and_then(|words| words.category.as_deref())
+            .unwrap_or(&self.effect.category)
+    }
+
+    /// The tooltip in `language`, else the English.
+    pub fn description_in(&self, language: &str) -> &str {
+        self.words(language)
+            .and_then(|words| words.description.as_deref())
+            .unwrap_or(&self.effect.description)
+    }
+
+    fn knob_words(&self, key: &str, language: &str) -> Option<&ParamWords> {
+        self.words(language)?.params.get(key)
+    }
+
+    /// A knob's label in `language`, else the English.
+    pub fn label_in<'a>(&'a self, param: &'a Param, language: &str) -> &'a str {
+        self.knob_words(&param.key, language)
+            .and_then(|words| words.label.as_deref())
+            .unwrap_or(&param.label)
+    }
+
+    /// A knob's subhead in `language`, else the English (empty for none).
+    pub fn group_in<'a>(&'a self, param: &'a Param, language: &str) -> &'a str {
+        self.knob_words(&param.key, language)
+            .and_then(|words| words.group.as_deref())
+            .filter(|_| !param.group.is_empty())
+            .unwrap_or(&param.group)
+    }
+
+    /// An enum knob's choices in `language`, else the English.
+    pub fn labels_in<'a>(&'a self, param: &'a Param, language: &str) -> &'a [String] {
+        self.knob_words(&param.key, language)
+            .map(|words| words.labels.as_slice())
+            .filter(|labels| labels.len() == param.labels.len() && !labels.is_empty())
+            .unwrap_or(&param.labels)
+    }
+
+    /// Whether the library's search for `query` finds the package: in its
+    /// English name, description or ids, or in any language it carries -
+    /// a name, a description or a keyword. `query` is matched as typed,
+    /// without regard to case; an empty one finds everything.
+    pub fn matches_query(&self, query: &str) -> bool {
+        let query = query.trim().to_lowercase();
+        if query.is_empty() {
+            return true;
+        }
+        let found = |text: &str| text.to_lowercase().contains(&query);
+        // An id by its name, not its author: "concat" is not a search for
+        // every built-in.
+        let id_found = |id: &str| found(id.split_once('.').map_or(id, |(_, name)| name));
+        found(&self.effect.name)
+            || found(&self.effect.description)
+            || id_found(&self.effect.id)
+            || self.effect.aliases.iter().any(|alias| id_found(alias))
+            || self.i18n.values().any(|words| {
+                words.name.as_deref().is_some_and(found)
+                    || words.description.as_deref().is_some_and(found)
+                    || words.keywords.iter().any(|word| found(word))
+            })
+    }
+
     /// Parses and validates `source`.
     pub fn parse(source: &str) -> Result<Manifest, Error> {
         let manifest: Manifest = toml::from_str(source).map_err(|error| Error::Invalid {
@@ -563,6 +709,32 @@ impl Manifest {
                     .is_some_and(|(a, n)| is_id_segment(a) && is_id_segment(n))
             {
                 return Err(self.invalid(format!("alias `{alias}` is not an id")));
+            }
+        }
+        for (code, words) in &self.i18n {
+            if code.trim().is_empty() {
+                return Err(self.invalid("[i18n] names a language with no code"));
+            }
+            if words
+                .name
+                .as_deref()
+                .is_some_and(|name| name.trim().is_empty())
+            {
+                return Err(self.invalid(format!("[i18n.{code}] name is empty")));
+            }
+            for (key, knob) in &words.params {
+                let Some(param) = self.params.iter().find(|param| &param.key == key) else {
+                    return Err(self.invalid(format!(
+                        "[i18n.{code}.params.{key}]: {key} is not a parameter of this package"
+                    )));
+                };
+                if !knob.labels.is_empty() && knob.labels.len() != param.labels.len() {
+                    return Err(self.invalid(format!(
+                        "[i18n.{code}.params.{key}] has {} labels and the parameter {}",
+                        knob.labels.len(),
+                        param.labels.len()
+                    )));
+                }
             }
         }
         let mut seen = std::collections::HashSet::new();

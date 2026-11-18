@@ -11,3 +11,11 @@ description = "Desaturated and blue, the blacks lifted to a matte wintry haze."
 [wgsl]
 entry = "effect.wgsl"
 space = "display"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "冬日冷调"
+category = "风景"
+description = "低饱和偏蓝，黑色提亮成哑光般的冬日薄雾。"
+keywords = ["冬天", "冷色"]

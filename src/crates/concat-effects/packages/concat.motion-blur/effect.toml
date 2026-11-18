@@ -36,3 +36,17 @@ entry = "effect.wgsl"
 # samples.
 [[wgsl.pass]]
 target = "coarse"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "动态模糊"
+category = "模糊"
+description = "沿一条直线拖影，就像摄像机在横摇。"
+keywords = ["运动模糊", "拖影"]
+
+[i18n.zh-Hans.params.length]
+label = "长度"
+
+[i18n.zh-Hans.params.angle]
+label = "角度"

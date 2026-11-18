@@ -11,3 +11,11 @@ description = "Black and white pushed hard: deep blacks, bright whites, nothing 
 [wgsl]
 entry = "effect.wgsl"
 space = "display"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "高反差黑白"
+category = "黑白"
+description = "强烈的黑白：深黑、亮白，几乎没有中间灰。"
+keywords = ["黑白", "高对比"]
