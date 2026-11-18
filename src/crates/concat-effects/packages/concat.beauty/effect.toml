@@ -63,3 +63,17 @@ unit = "%"
 [wgsl]
 entry = "effect.wgsl"
 space = "display"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "美颜"
+category = "人像"
+description = "磨皮与美白：均匀毛孔和细小斑点，头发、眼睛、轮廓和嘴唇保持清晰。"
+keywords = ["磨皮", "美白", "美颜", "人像", "祛痘"]
+
+[i18n.zh-Hans.params.smoothing]
+label = "磨皮"
+
+[i18n.zh-Hans.params.whiten]
+label = "美白"

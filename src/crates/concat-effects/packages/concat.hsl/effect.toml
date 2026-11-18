@@ -286,3 +286,107 @@ space = "display"
 
 [card]
 params = { "blue_sat" = 40, "orange_lum" = 15, "green_sat" = -30 }
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "HSL 调色"
+category = "色彩"
+description = "八个色彩通道，各自调整色相、饱和度和亮度：让天空更蓝而不影响人脸，让草地更沉静而不影响天空。"
+keywords = ["色相", "饱和度", "亮度", "调色", "八色"]
+
+[i18n.zh-Hans.params.red_hue]
+label = "色相"
+group = "红色"
+
+[i18n.zh-Hans.params.red_sat]
+label = "饱和度"
+group = "红色"
+
+[i18n.zh-Hans.params.red_lum]
+label = "亮度"
+group = "红色"
+
+[i18n.zh-Hans.params.orange_hue]
+label = "色相"
+group = "橙色"
+
+[i18n.zh-Hans.params.orange_sat]
+label = "饱和度"
+group = "橙色"
+
+[i18n.zh-Hans.params.orange_lum]
+label = "亮度"
+group = "橙色"
+
+[i18n.zh-Hans.params.yellow_hue]
+label = "色相"
+group = "黄色"
+
+[i18n.zh-Hans.params.yellow_sat]
+label = "饱和度"
+group = "黄色"
+
+[i18n.zh-Hans.params.yellow_lum]
+label = "亮度"
+group = "黄色"
+
+[i18n.zh-Hans.params.green_hue]
+label = "色相"
+group = "绿色"
+
+[i18n.zh-Hans.params.green_sat]
+label = "饱和度"
+group = "绿色"
+
+[i18n.zh-Hans.params.green_lum]
+label = "亮度"
+group = "绿色"
+
+[i18n.zh-Hans.params.cyan_hue]
+label = "色相"
+group = "青色"
+
+[i18n.zh-Hans.params.cyan_sat]
+label = "饱和度"
+group = "青色"
+
+[i18n.zh-Hans.params.cyan_lum]
+label = "亮度"
+group = "青色"
+
+[i18n.zh-Hans.params.blue_hue]
+label = "色相"
+group = "蓝色"
+
+[i18n.zh-Hans.params.blue_sat]
+label = "饱和度"
+group = "蓝色"
+
+[i18n.zh-Hans.params.blue_lum]
+label = "亮度"
+group = "蓝色"
+
+[i18n.zh-Hans.params.purple_hue]
+label = "色相"
+group = "紫色"
+
+[i18n.zh-Hans.params.purple_sat]
+label = "饱和度"
+group = "紫色"
+
+[i18n.zh-Hans.params.purple_lum]
+label = "亮度"
+group = "紫色"
+
+[i18n.zh-Hans.params.magenta_hue]
+label = "色相"
+group = "洋红"
+
+[i18n.zh-Hans.params.magenta_sat]
+label = "饱和度"
+group = "洋红"
+
+[i18n.zh-Hans.params.magenta_lum]
+label = "亮度"
+group = "洋红"
