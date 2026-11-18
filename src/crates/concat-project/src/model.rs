@@ -2808,6 +2808,12 @@ pub struct Clip {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(deserialize_with = "wire::maybe")]
     pub voice: Option<VoiceMix>,
+    /// The beats found in this clip's audio, in seconds of source time
+    /// (so a trim or a speed change leaves them where the music has
+    /// them), ascending. Empty until beat detection has run.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(deserialize_with = "wire::list")]
+    pub beats: Vec<f64>,
     /// Keep voices at their natural pitch when `speed` is not 1. On by
     /// default; off gives the tape-machine chipmunk/slow-motion sound.
     pub preserve_pitch: bool,
@@ -2950,6 +2956,7 @@ impl Clip {
             motion: None,
             stabilize: None,
             voice: None,
+            beats: Vec::new(),
             filters: Vec::new(),
             video_effects: Vec::new(),
             audio_stream: None,

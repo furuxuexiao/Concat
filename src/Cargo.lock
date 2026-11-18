@@ -1225,6 +1225,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "concat-audio"
+version = "0.2.8"
+
+[[package]]
 name = "concat-cli"
 version = "0.2.11"
 dependencies = [
