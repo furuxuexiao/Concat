@@ -23,6 +23,7 @@ mod ffi;
 pub mod gif;
 pub mod hardware;
 pub mod peaks;
+pub mod platform;
 pub mod pool;
 pub mod prefetch;
 pub mod probe;

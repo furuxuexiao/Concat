@@ -92,6 +92,14 @@ export struct ExportData {
     done-size: string,
     /// nothing on the timeline to export
     empty: bool,
+    /// the platform picked: 0 none, then Douyin, WeChat Channels,
+    /// Bilibili 1080P, Bilibili 4K, YouTube
+    preset: int,
+    presets: [string],
+    /// "1080p · 10 Mbps · H.264" under each
+    preset-details: [string],
+    /// what the picked platform would not take about this edit as it is
+    preset-note: string,
 }
 
 // One tile of the summary block.
@@ -297,6 +305,7 @@ component DestinationSection inherits DialogSection {
 component OutputSection inherits DialogSection {
     in property <ExportData> data;
 
+    callback preset-changed(index: int);
     callback rate-changed(index: int);
     callback bitrate-changed(mbps: float);
     callback codec-changed(index: int);
@@ -304,6 +313,25 @@ component OutputSection inherits DialogSection {
     callback hdr-changed(on: bool);
 
     title: I18n.t("export.output");
+
+    // Where the file is going: picks the codec, the rate and the bitrate
+    // that platform takes, and says what about the edit it would not.
+    DialogRow {
+        label: I18n.t("export.platform");
+        Select {
+            current: root.data.preset;
+            options: root.data.presets;
+            details: root.data.preset-details;
+            changed(index) => { root.preset-changed(index); }
+        }
+    }
+
+    if root.data.preset-note != "": Text {
+        text: root.data.preset-note;
+        color: Theme.fg-dim;
+        font-size: Theme.fs-sm;
+        wrap: word-wrap;
+    }
 
     DialogRow {
         label: I18n.t("export.resolution");
@@ -602,6 +630,7 @@ export component ExportDialog inherits Rectangle {
     callback closed();
     callback name-edited(name: string);
     callback browse();
+    callback preset-changed(index: int);
     callback rate-changed(index: int);
     callback codec-changed(index: int);
     callback ten-bit-changed(on: bool);
@@ -739,6 +768,7 @@ export component ExportDialog inherits Rectangle {
                         if !root.running: OutputSection {
                             data: root.data;
                             bitrate-changed(mbps) => { root.bitrate-changed(mbps); }
+                            preset-changed(index) => { root.preset-changed(index); }
                             rate-changed(index) => { root.rate-changed(index); }
                             codec-changed(index) => { root.codec-changed(index); }
                             ten-bit-changed(on) => { root.ten-bit-changed(on); }
@@ -779,6 +809,7 @@ export component ExportDialog inherits Rectangle {
                                 first: true;
                                 data: root.data;
                                 bitrate-changed(mbps) => { root.bitrate-changed(mbps); }
+                                preset-changed(index) => { root.preset-changed(index); }
                                 rate-changed(index) => { root.rate-changed(index); }
                                 codec-changed(index) => { root.codec-changed(index); }
                                 ten-bit-changed(on) => { root.ten-bit-changed(on); }
@@ -814,6 +845,7 @@ export component ExportDialog inherits Rectangle {
                                 first: true;
                                 data: root.data;
                                 bitrate-changed(mbps) => { root.bitrate-changed(mbps); }
+                                preset-changed(index) => { root.preset-changed(index); }
                                 rate-changed(index) => { root.rate-changed(index); }
                                 codec-changed(index) => { root.codec-changed(index); }
                                 ten-bit-changed(on) => { root.ten-bit-changed(on); }

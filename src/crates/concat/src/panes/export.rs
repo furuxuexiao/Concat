@@ -15,6 +15,7 @@
 
 use concat_host::export::{self, ExportSpec};
 use concat_media::ColorRange;
+use concat_media::platform::{Advice, Orientation, Platform};
 
 use crate::format::{bytes, eta};
 use crate::host::{on_ui, spawn};
@@ -40,6 +41,9 @@ pub enum ExportMsg {
     HdrChanged(bool),
     /// The target bitrate field, in Mbps: the bitrate becomes a custom one.
     BitrateChanged(f32),
+    /// The platform picker: 0 is none, then [`Platform::ALL`] in order.
+    /// Sets the codec, the rate and the bitrate the platform takes.
+    PresetChanged(i32),
     /// Back to the form after a finished or failed render.
     Again,
     /// Pick the destination folder.
@@ -83,6 +87,9 @@ pub struct ExportPane {
     pub sdr: bool,
     /// The typed bitrate in kbps, the one written when `custom`.
     pub bitrate: u32,
+    /// The platform the file is for: what the sheet set its codec, rate
+    /// and bitrate from, until one of them is changed by hand.
+    pub preset: Option<Platform>,
     pub phase: ExportPhase,
     pub progress: f32,
     pub stage: String,
@@ -113,6 +120,7 @@ impl Default for ExportPane {
             ten_bit: false,
             sdr: false,
             bitrate: 8000,
+            preset: None,
             phase: ExportPhase::Idle,
             progress: 0.0,
             stage: String::new(),
@@ -139,11 +147,17 @@ impl ExportPane {
                 self.resolution = Self::own_rung(studio);
                 self.rate = 0;
                 self.follow_canvas(studio);
+                // A platform picked before is picked again, for this
+                // timeline's rate as it now is.
+                if let Some(platform) = self.preset {
+                    self.apply_preset(platform, studio);
+                }
             }
             ExportMsg::Close => self.open = false,
             ExportMsg::NameEdited(name) => self.name = name,
             ExportMsg::RateChanged(index) => {
                 self.rate = (index.max(0) as usize).min(Self::rates(studio).len() - 1);
+                self.preset = None;
             }
             // A codec this device cannot encode is not taken: the picker
             // says so under it, and the choice before stands.
@@ -151,14 +165,36 @@ impl ExportPane {
                 let index = (index.max(0) as usize).min(concat_media::VideoCodec::ALL.len() - 1);
                 if concat_media::VideoCodec::ALL[index].encodable() {
                     self.codec = index;
+                    self.preset = None;
                 }
             }
-            ExportMsg::TenBitChanged(on) => self.ten_bit = on,
-            ExportMsg::HdrChanged(on) => self.sdr = !on,
+            ExportMsg::TenBitChanged(on) => {
+                self.ten_bit = on;
+                self.preset = None;
+            }
+            ExportMsg::HdrChanged(on) => {
+                self.sdr = !on;
+                self.preset = None;
+            }
             ExportMsg::BitrateChanged(mbps) => {
                 if mbps.is_finite() {
                     self.bitrate = ((mbps * 1000.0).round() as u32).clamp(500, 400_000);
                     self.custom = true;
+                    self.preset = None;
+                }
+            }
+            ExportMsg::PresetChanged(index) => {
+                let platform = usize::try_from(index)
+                    .ok()
+                    .and_then(|index| index.checked_sub(1))
+                    .and_then(|index| Platform::ALL.get(index).copied());
+                match platform {
+                    Some(platform) => self.apply_preset(platform, studio),
+                    None => {
+                        // Back to the sheet's own recommendation.
+                        self.preset = None;
+                        self.custom = false;
+                    }
                 }
             }
             ExportMsg::Again => {
@@ -239,6 +275,83 @@ impl ExportPane {
                 studio.notify(&tf("export.exportFailed", &[&error]), true);
             }
         }
+    }
+
+    /// Sets the sheet to what `platform` takes: H.264, the timeline's own
+    /// rate unless the platform plays slower (then its fastest), the
+    /// platform's bitrate at that rate, and 8-bit SDR where it takes
+    /// nothing else. The frame is the timeline's, as ever; what the
+    /// platform would want of it is said under the picker instead.
+    fn apply_preset(&mut self, platform: Platform, studio: &Studio) {
+        use concat_media::VideoCodec;
+        if let Some(index) = VideoCodec::ALL
+            .iter()
+            .position(|codec| *codec == VideoCodec::H264 && codec.encodable())
+        {
+            self.codec = index;
+        }
+        let rates = Self::rates(studio);
+        let fps_of = |(num, den): (i64, i64)| num as f64 / den.max(1) as f64;
+        let wanted = platform.fps_for(fps_of(rates[0]));
+        self.rate = rates
+            .iter()
+            .enumerate()
+            .min_by(|(_, a), (_, b)| {
+                (fps_of(**a) - wanted)
+                    .abs()
+                    .total_cmp(&(fps_of(**b) - wanted).abs())
+            })
+            .map_or(0, |(index, _)| index);
+        if platform.eight_bit_only() {
+            self.ten_bit = false;
+            self.sdr = true;
+        }
+        self.bitrate = platform.kbps(fps_of(self.rate(studio)));
+        self.custom = true;
+        self.preset = Some(platform);
+        log::info!(
+            "export: preset {} · {} kbps at {:.3} fps",
+            platform.id(),
+            self.bitrate,
+            fps_of(self.rate(studio))
+        );
+    }
+
+    /// The platform's name as the picker shows it.
+    fn platform_name(platform: Platform) -> String {
+        // A call per name, so the locale inventory finds each key.
+        match platform {
+            Platform::Douyin => t("export.presetDouyin"),
+            Platform::Channels => t("export.presetChannels"),
+            Platform::Bilibili => t("export.presetBilibili"),
+            Platform::Bilibili4k => t("export.presetBilibili4k"),
+            Platform::YouTube => t("export.presetYouTube"),
+        }
+    }
+
+    /// What the sheet says under the picker: what the chosen platform
+    /// would not take about this edit as it is, a sentence each.
+    fn preset_note(&self, studio: &Studio) -> String {
+        let Some(platform) = self.preset else {
+            return String::new();
+        };
+        let (width, height) = self.size(studio);
+        let name = Self::platform_name(platform);
+        platform
+            .advise(width, height, self.deep(studio))
+            .into_iter()
+            .map(|advice| match advice {
+                Advice::Orientation(Orientation::Upright) => tf("export.adviceUpright", &[&name]),
+                Advice::Orientation(_) => tf("export.adviceWide", &[&name]),
+                Advice::TooSmall(lines) => tf(
+                    "export.adviceTooSmall",
+                    &[&name, &lines, &width.min(height)],
+                ),
+                Advice::TooLarge(lines) => tf("export.adviceTooLarge", &[&name, &lines]),
+                Advice::EightBitOnly => tf("export.adviceEightBit", &[&name]),
+            })
+            .collect::<Vec<_>>()
+            .join(" ")
     }
 
     /// The resolution ladder for this project: the standard short sides,
@@ -692,6 +805,35 @@ impl ExportPane {
             message: self.message.as_str().into(),
             done_size: bytes(self.size_bytes(studio)).into(),
             empty: clips == 0,
+            preset: self.preset.map_or(0, |platform| {
+                Platform::ALL
+                    .iter()
+                    .position(|known| *known == platform)
+                    .map_or(0, |index| index as i32 + 1)
+            }),
+            presets: {
+                let names: Vec<SharedString> = std::iter::once(t("export.presetNone"))
+                    .chain(
+                        Platform::ALL
+                            .iter()
+                            .map(|platform| Self::platform_name(*platform)),
+                    )
+                    .map(SharedString::from)
+                    .collect();
+                ModelRc::new(VecModel::from(names))
+            },
+            preset_details: {
+                let details: Vec<SharedString> = std::iter::once(t("export.presetNoneDetail"))
+                    .chain(Platform::ALL.iter().map(|platform| {
+                        let lines = platform.max_short_side();
+                        let mbps = platform.kbps(30.0) as f32 / 1000.0;
+                        format!("{lines}p · {mbps} Mbps · H.264")
+                    }))
+                    .map(SharedString::from)
+                    .collect();
+                ModelRc::new(VecModel::from(details))
+            },
+            preset_note: self.preset_note(studio).into(),
         }
     }
 }
