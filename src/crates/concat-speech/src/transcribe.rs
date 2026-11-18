@@ -699,6 +699,23 @@ const PROMPT_SIMPLIFIED: &str = "以下是普通话的句子，使用简体中�
 /// The same, for captions in Traditional characters.
 const PROMPT_TRADITIONAL: &str = "以下是普通話的句子，使用繁體中文，並加上標點符號。";
 
+/// `segment` with its words, and its timed pieces, in Simplified
+/// characters; see [`crate::hans`]. The pieces keep their times and as
+/// many characters each as they had.
+fn simplified_segment(mut segment: Segment) -> Segment {
+    segment.text = crate::hans::to_simplified(&segment.text);
+    let texts: Vec<&str> = segment
+        .pieces
+        .iter()
+        .map(|piece| piece.text.as_str())
+        .collect();
+    let converted = crate::hans::to_simplified_pieces(&texts);
+    for (piece, text) in segment.pieces.iter_mut().zip(converted) {
+        piece.text = text;
+    }
+    segment
+}
+
 /// The prompt a run in `language` - the code whisper is told - starts
 /// from: Chinese, asked for or heard, is prompted in Simplified
 /// characters, unless the request (`asked`) named "zh-Hant", Traditional.
@@ -1292,8 +1309,15 @@ impl Transcriber {
             Some(kept)
         });
         let lines: Vec<Segment> = lines.collect();
-        Ok(if recipe.prune {
+        let lines = if recipe.prune {
             drop_repeats(lines)
+        } else {
+            lines
+        };
+        // Asked for in Simplified, written in Simplified, wherever the
+        // prompt did not hold whisper to it; see `crate::hans`.
+        Ok(if prompt == Some(PROMPT_SIMPLIFIED) {
+            lines.into_iter().map(simplified_segment).collect()
         } else {
             lines
         })
@@ -1582,6 +1606,38 @@ mod tests {
         // Over no detected speech, or with no detector: whisper's times.
         assert_eq!(on_speech(40.0, 45.0, &speech), (40.0, 45.0));
         assert_eq!(on_speech(0.0, 7.0, &[]), (0.0, 7.0));
+    }
+
+    /// A segment whisper wrote partly in Traditional reads in Simplified,
+    /// its pieces with it, each keeping its time and its share of the
+    /// characters.
+    #[test]
+    fn a_simplified_run_writes_its_segments_in_simplified() {
+        let piece = |text: &str, start: f64, end: f64| Piece {
+            text: text.to_owned(),
+            start,
+            end,
+        };
+        let segment = Segment {
+            start: 0.0,
+            end: 2.0,
+            text: "歡迎來到我們的頻道".to_owned(),
+            pieces: vec![
+                piece("歡迎", 0.0, 0.5),
+                piece("來到", 0.5, 1.0),
+                piece("我們的頻道", 1.0, 2.0),
+            ],
+        };
+        let simplified = simplified_segment(segment);
+        assert_eq!(simplified.text, "欢迎来到我们的频道");
+        assert_eq!(
+            simplified.pieces,
+            vec![
+                piece("欢迎", 0.0, 0.5),
+                piece("来到", 0.5, 1.0),
+                piece("我们的频道", 1.0, 2.0),
+            ]
+        );
     }
 
     /// Chinese asked for, or heard, is prompted in the characters it is to

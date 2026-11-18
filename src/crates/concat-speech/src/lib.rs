@@ -19,6 +19,8 @@
 
 #[cfg(feature = "chatterbox")]
 pub mod chatterbox;
+pub mod hans;
+mod hans_table;
 #[cfg(feature = "isolate")]
 pub mod isolate;
 pub mod transcribe;

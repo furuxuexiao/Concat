@@ -57,6 +57,17 @@ Concat bundles two models:
   it under MIT). It is voice isolation's model. The licence texts are in
   `src/crates/concat-speech/assets/deepfilternet3/`.
 
+## OpenCC (Traditional to Simplified Chinese)
+
+Captions asked for in Simplified Chinese are written in Simplified
+characters by tables generated from OpenCC's `TSCharacters.txt` and
+`TSPhrases.txt` (https://github.com/BYVoid/OpenCC, Apache-2.0, Copyright
+BYVoid and the OpenCC contributors), compiled into
+`src/crates/concat-speech/src/hans_table.rs` by
+`src/crates/concat-speech/scripts/hans_table.py`. Only the CJK Unified
+Ideographs block is kept, and only the first Simplified form OpenCC lists
+for each character; the data is otherwise unmodified.
+
 ## Slint (GPL-3.0-only, or Royalty-free for commercial builds)
 
 The `concat` crate (`src/crates/concat`) builds against

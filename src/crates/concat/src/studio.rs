@@ -1982,6 +1982,14 @@ fn command_kind(command: &Command) -> &'static str {
         Command::SetClipStabilize { .. } => "Stabilize off",
         Command::SetClipVoice { voice: Some(_), .. } => "Voice isolation",
         Command::SetClipVoice { .. } => "Voice isolation off",
+        Command::SetClipBeats { beats, .. } if beats.is_empty() => "Clear beats",
+        Command::SetClipBeats { .. } => "Detect beats",
+        Command::SetClipInterpolated {
+            interpolated: Some(_),
+            ..
+        } => "Frame interpolation",
+        Command::SetClipInterpolated { .. } => "Frame interpolation off",
+        Command::RemoveSpans { .. } => "Cut by transcript",
         Command::AddCutoutStroke { .. } => "Smart brush stroke",
         Command::MoveClips { .. } => "Move",
         Command::TrimClip { .. } => "Trim",
