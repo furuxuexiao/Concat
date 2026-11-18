@@ -42,13 +42,13 @@ def main(folder):
     out.write("// TSPhrases.txt (Apache-2.0, Copyright BYVoid and the OpenCC contributors,\n")
     out.write("// https://github.com/BYVoid/OpenCC). Do not edit by hand.\n\n")
     out.write("/// Traditional character to its Simplified form, sorted by the first.\n")
-    out.write(f"pub(crate) const CHARS: [(char, char); {len(chars)}] = [\n")
+    out.write(f"pub(crate) static CHARS: [(char, char); {len(chars)}] = [\n")
     for key in sorted(chars):
         out.write(f"    ('{key}', '{chars[key]}'),\n")
     out.write("];\n\n")
     out.write("/// Phrases whose Simplified form is not their characters' one by one,\n")
     out.write("/// sorted; each keeps its length in characters.\n")
-    out.write(f"pub(crate) const PHRASES: [(&str, &str); {len(phrases)}] = [\n")
+    out.write(f"pub(crate) static PHRASES: [(&str, &str); {len(phrases)}] = [\n")
     for key in sorted(phrases):
         out.write(f'    ("{key}", "{phrases[key]}"),\n')
     out.write("];\n")

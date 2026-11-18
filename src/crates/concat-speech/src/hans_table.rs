@@ -4,7 +4,7 @@
 // https://github.com/BYVoid/OpenCC). Do not edit by hand.
 
 /// Traditional character to its Simplified form, sorted by the first.
-pub(crate) const CHARS: [(char, char); 2843] = [
+pub(crate) static CHARS: [(char, char); 2843] = [
     ('丟', '丢'),
     ('並', '并'),
     ('乾', '干'),
@@ -2852,7 +2852,7 @@ pub(crate) const CHARS: [(char, char); 2843] = [
 
 /// Phrases whose Simplified form is not their characters' one by one,
 /// sorted; each keeps its length in characters.
-pub(crate) const PHRASES: [(&str, &str); 257] = [
+pub(crate) static PHRASES: [(&str, &str); 257] = [
     ("一目瞭然", "一目了然"),
     ("上鍊", "上链"),
     ("不瞭解", "不了解"),
