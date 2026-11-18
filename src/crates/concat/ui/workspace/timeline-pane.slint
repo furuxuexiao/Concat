@@ -84,6 +84,7 @@ export component TimelinePane inherits Rectangle {
     callback merge();
     callback delete-selected();
     callback captions();
+    callback auto-captions();
     callback speak();
     callback record-voiceover();
     callback add-track(bottom: bool);
@@ -375,6 +376,7 @@ export component TimelinePane inherits Rectangle {
             merge => { root.merge(); }
             delete-selected => { root.delete-selected(); }
             captions => { root.captions(); }
+            auto-captions => { root.auto-captions(); }
             speak => { root.speak(); }
             record-voiceover => { root.record-voiceover(); }
             add-track(bottom) => { root.add-track(bottom); }

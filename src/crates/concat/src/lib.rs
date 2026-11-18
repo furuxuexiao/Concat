@@ -2373,6 +2373,9 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
         };
         state.handle(Msg::Captions(msg));
     }));
+    editor.on_auto_captions(on_window!(|state| {
+        state.handle(Msg::Captions(CaptionsMsg::AutoCaption));
+    }));
     editor.on_record_voiceover(on_window!(|state| {
         state.handle(Msg::Voiceover(VoiceoverMsg::Toggle));
     }));

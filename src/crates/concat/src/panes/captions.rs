@@ -33,7 +33,7 @@ use concat_speech::JobStage;
 use concat_speech::transcribe::Segment;
 
 use crate::host::{on_ui_in_project, spawn_in_project};
-use crate::i18n::{t, tf};
+use crate::i18n::{self, t, tf};
 use crate::panes::Msg;
 use crate::panes::pace::{Pace, Stage, Timings};
 use crate::panes::settings::installed;
@@ -55,6 +55,12 @@ pub enum CaptionsMsg {
     /// The tray's Captions tool: the selected clip's voice when it has
     /// sound, the script otherwise.
     Open,
+    /// The tray's "Auto captions": no sheet to fill in. The selected clip's
+    /// voice, else the longest clip with sound, transcribed at once with
+    /// the installed model, in Simplified Chinese under a Chinese
+    /// interface unless another language was picked, lines cut by the
+    /// frame; see [`CaptionsPane::auto_caption`].
+    AutoCaption,
     /// A clip's menu: the sheet on that clip's voice.
     OpenOnClip(String),
     Close,
@@ -176,6 +182,11 @@ impl CaptionsPane {
                 self.open = true;
                 self.show_in_library(studio);
             }
+            CaptionsMsg::AutoCaption if self.running => {
+                studio.notify(&t("captions.autoAlreadyRunning"), false);
+                self.show_in_library(studio);
+            }
+            CaptionsMsg::AutoCaption => self.auto_caption(studio),
             CaptionsMsg::Open => {
                 let selected = studio.sole_selection();
                 self.open_on(studio, selected, false);
@@ -534,6 +545,50 @@ impl CaptionsPane {
             studio.remember_layout_soon();
         }
         studio.captions_jump += 1;
+    }
+
+    /// One press, captions: what the tray's "Auto captions" does. The clip
+    /// is the selected one when it has sound, else the longest clip with
+    /// sound - the voice of a talking-head cut, rather than whichever
+    /// sound happens to start first. The language is the one picked in the
+    /// sheet before, else Simplified Chinese under a Chinese interface
+    /// (whisper is then prompted, and its words put, in Simplified; see
+    /// concat_speech::hans), else whisper's to hear. Lines are cut as the
+    /// sheet's saved choice says, by the frame unless changed, and end
+    /// without a comma or full stop unless that was turned off. With no
+    /// transcriber installed, or nothing with sound on the timeline, the
+    /// panel opens on why.
+    fn auto_caption(&mut self, studio: &mut Studio) {
+        let candidates: Vec<(String, f64)> = studio
+            .timeline()
+            .clips
+            .iter()
+            .filter(|clip| studio.clip_has_sound(clip))
+            .map(|clip| (clip.id.clone(), clip.duration))
+            .collect();
+        let selected = studio.sole_selection();
+        let Some(clip) = auto_subject(selected.as_deref(), &candidates) else {
+            self.open_on(studio, None, false);
+            self.message = t("captions.autoNothingWithSound");
+            studio.notify(&self.message, true);
+            self.show_in_library(studio);
+            return;
+        };
+        self.open_on(studio, Some(clip), true);
+        // `open_on` kept the sheet's remembered pick when it is still one
+        // the list offers.
+        self.language = auto_language(&i18n::current(), self.language.as_deref());
+        log::info!(
+            "captions: auto · language {}",
+            self.language.as_deref().unwrap_or("heard")
+        );
+        self.run_sound(studio);
+        if self.running {
+            studio.notify(&t("captions.autoStarted"), false);
+        } else if !self.message.is_empty() {
+            studio.notify(&self.message, true);
+        }
+        self.show_in_library(studio);
     }
 
     fn open_on(&mut self, studio: &Studio, clip: Option<String>, voice: bool) {
@@ -1111,6 +1166,35 @@ struct Source {
     label: String,
 }
 
+/// The clip "Auto captions" transcribes, of `candidates` (each clip with
+/// sound, and how long it runs): the selected one when it is among them,
+/// else the longest, the first of equals. None when nothing has sound.
+fn auto_subject(selected: Option<&str>, candidates: &[(String, f64)]) -> Option<String> {
+    if let Some(selected) = selected
+        && candidates.iter().any(|(id, _)| id == selected)
+    {
+        return Some(selected.to_owned());
+    }
+    candidates
+        .iter()
+        .fold(None::<&(String, f64)>, |best, candidate| match best {
+            Some(best) if best.1 >= candidate.1 => Some(best),
+            _ => Some(candidate),
+        })
+        .map(|(id, _)| id.clone())
+}
+
+/// The language "Auto captions" asks for when the sheet has none picked:
+/// Simplified Chinese under a Simplified Chinese interface, else none -
+/// whisper's to hear. `saved` is the sheet's remembered pick, which wins.
+fn auto_language(interface: &str, saved: Option<&str>) -> Option<String> {
+    match saved {
+        Some(code) => Some(code.to_owned()),
+        None if interface == "zh-Hans" => Some("zh".to_owned()),
+        None => None,
+    }
+}
+
 /// The clips on the current timeline that have sound, in the order they
 /// play: an audio clip, or a video whose file has an audio stream.
 fn sources(studio: &Studio) -> Vec<Source> {
@@ -1413,6 +1497,43 @@ mod tests {
         );
         // The chosen clip deleted: nothing to run, rather than a clip unseen.
         assert_eq!(follow(None, None, Some("gone")), None);
+    }
+
+    /// "Auto captions" takes the selected clip when it has sound, else the
+    /// longest with sound, the first of equal lengths; none without sound.
+    #[test]
+    fn auto_captions_takes_the_selected_voice_else_the_longest() {
+        let clips = |list: &[(&str, f64)]| -> Vec<(String, f64)> {
+            list.iter().map(|(id, d)| ((*id).to_owned(), *d)).collect()
+        };
+        let three = clips(&[("a", 4.0), ("b", 30.0), ("c", 12.0)]);
+        assert_eq!(super::auto_subject(Some("c"), &three).as_deref(), Some("c"));
+        // A title selected - not among the sounding clips - is passed over.
+        assert_eq!(super::auto_subject(Some("t"), &three).as_deref(), Some("b"));
+        assert_eq!(super::auto_subject(None, &three).as_deref(), Some("b"));
+        let tied = clips(&[("x", 10.0), ("y", 10.0)]);
+        assert_eq!(super::auto_subject(None, &tied).as_deref(), Some("x"));
+        assert_eq!(super::auto_subject(Some("a"), &[]), None);
+        assert_eq!(super::auto_subject(None, &[]), None);
+    }
+
+    /// The language asked for: the sheet's pick, else Simplified Chinese
+    /// under the Simplified interface, else whisper's to hear.
+    #[test]
+    fn auto_captions_asks_for_simplified_under_a_chinese_interface() {
+        assert_eq!(super::auto_language("zh-Hans", None).as_deref(), Some("zh"));
+        assert_eq!(super::auto_language("en", None), None);
+        assert_eq!(super::auto_language("ja", None), None);
+        assert_eq!(
+            super::auto_language("zh-Hans", Some("en")).as_deref(),
+            Some("en")
+        );
+        assert_eq!(
+            super::auto_language("en", Some("zh-Hant")).as_deref(),
+            Some("zh-Hant")
+        );
+        // What it asks for is a row the sheet's list has.
+        assert!(super::language_row(super::auto_language("zh-Hans", None).as_deref()) > 0);
     }
 
     /// Row 0 is "Auto-detect", and a language's row reads back as the

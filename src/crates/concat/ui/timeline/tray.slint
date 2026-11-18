@@ -208,6 +208,9 @@ export component TimelineTray inherits Rectangle {
     callback merge();
     callback delete-selected();
     callback captions();
+    /// One press, captions: no sheet, the selected or longest voice heard
+    /// and laid as lines at once.
+    callback auto-captions();
     callback speak();
     callback record-voiceover();
     /// Add a lane: on top of the stack, or with `bottom` under it.
@@ -419,6 +422,13 @@ export component TimelineTray inherits Rectangle {
             // On while the panel is up; a second press puts it away.
             checked: Editor.captions-open;
             clicked => { root.captions(); }
+        }
+        // 剪映's 智能字幕 in one press: the sheet's choices, no sheet.
+        TrayButton {
+            glyph: Glyph.sparkle;
+            label: I18n.t("tray.autoCaptions");
+            icon-size: 16px;
+            clicked => { root.auto-captions(); }
         }
         TrayButton {
             glyph: Glyph.volume;

@@ -422,6 +422,8 @@ export global Editor {
     /// Taking a clip's sound off its picture, and putting it back, are rows
     /// of the clip's own menu - see `clip-context`.
     callback captions();
+    /// The tray's one-press captions; see `CaptionsMsg::AutoCaption`.
+    callback auto-captions();
     callback speak();
     /// The tray's record button: opens the voiceover panel, closes it, or
     /// stops the take it is running.
