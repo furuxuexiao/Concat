@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Jareer Abdullah and Concat contributors
 
+import { Features } from "../features.slint";
 import { I18n } from "../i18n.slint";
 import { Theme } from "../theme/theme.slint";
 import { Glyph, Icon } from "../icons.slint";
@@ -1345,7 +1346,10 @@ export component SpeedPanel inherits VerticalLayout {
                 progress: root.selected.reverse-progress;
             }
 
-            Row {
+            // Constant or a curve: a speed curve is an advanced tool
+            // (features.slint), offered only with them on, or on a clip
+            // that already has one so it can be seen and taken off.
+            if Features.advanced || root.curved: Row {
                 label: I18n.t("common.speed");
 
                 SegmentedControl {
@@ -1963,9 +1967,12 @@ export component VideoPanel inherits VerticalLayout {
                 text: I18n.t("clipInspector.nothingFoundKeepPicture");
             }
 
-            Hairline { }
+            // Painting a cutout by hand - the smart brush and its kin - is
+            // an advanced tool (features.slint): offered with them on, or
+            // on a clip already cut out that way.
+            if Features.advanced || root.removal == 2: Hairline { }
 
-            RemovalBlock {
+            if Features.advanced || root.removal == 2: RemovalBlock {
                 title: I18n.t("clipInspector.customRemoval");
                 on: root.removal == 2;
                 toggled(on) => { root.remove-by(on ? 2 : 0); }
@@ -2145,7 +2152,10 @@ export component VideoPanel inherits VerticalLayout {
     // mode - add, subtract, intersect, or cut nothing and wait for a layer
     // or an effect. Each number keys on the mask itself. Drawn on the
     // picture as it is seen, so they move with the clip.
+    // Masks are an advanced tool (features.slint): shown with them on, or
+    // on a clip that already has a mask.
     if root.mask-section
+        && (Features.advanced || root.selected.masks.length > 0)
         && (root.selected.kind == ClipKind.video || root.selected.kind == ClipKind.image): Section {
         mask-header := SectionHeader {
             title: I18n.t("mask.title");

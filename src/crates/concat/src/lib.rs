@@ -404,6 +404,10 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
     studio.watch_packages();
     let dark = studio.prefs.dark.unwrap_or(true);
     app.global::<Theme>().set_dark(dark);
+    // Keyframes, masks, shapes, speed curves and Automation: offered only
+    // when Settings > General asks for them; see ui/features.slint.
+    app.global::<Features>()
+        .set_advanced(studio.prefs.advanced_tools);
     motion_tiles::install(&app);
     // Windows puts a dialog's OK before its Cancel; macOS and Linux after.
     app.global::<Theme>().set_ok_first(cfg!(windows));
@@ -2275,6 +2279,16 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
     app.on_settings_log_level_changed(on_window!(|state, index: i32| {
         state.handle(Msg::Settings(SettingsMsg::LogLevelChanged(index)));
     }));
+    // Like the theme, one bool on a global the tree binds to, remembered.
+    app.on_settings_advanced_tools_changed(move |on| {
+        log::info!("settings: Advanced tools {}", if on { "on" } else { "off" });
+        Shell::with(|shell, app| {
+            app.global::<Features>().set_advanced(on);
+            let mut studio = shell.studio.borrow_mut();
+            studio.prefs.advanced_tools = on;
+            studio.prefs.save(&studio.host.dirs);
+        });
+    });
     app.on_settings_playhead_stops_changed(on_window!(|state, on: bool| {
         state.handle(Msg::Settings(SettingsMsg::PlayheadStopsChanged(on)));
     }));

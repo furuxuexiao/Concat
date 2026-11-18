@@ -19,6 +19,7 @@
 // half-second fade on a ten-minute clip is as easy to take hold of as one
 // on a ten-second clip.
 
+import { Features } from "../features.slint";
 import { I18n } from "../i18n.slint";
 import { Theme } from "../theme/theme.slint";
 import { Fmt } from "../util.slint";
@@ -26,7 +27,7 @@ import { Glyph, Icon } from "../icons.slint";
 import { NumberField } from "../primitives/number-field.slint";
 import { Wave } from "../primitives/wave.slint";
 import { Tip } from "../primitives/tooltip.slint";
-import { ClipField } from "../timeline/model.slint";
+import { ClipField, Keyframes } from "../timeline/model.slint";
 import { KeyCluster, Rail } from "controls.slint";
 
 /// A square mark that is pressed: the mute beside a level.
@@ -135,7 +136,8 @@ export component GainFader inherits VerticalLayout {
             changed(v) => { root.changed(v); }
         }
 
-        if root.keyable: VerticalLayout {
+        // An advanced tool (features.slint), as on every keyable value.
+        if root.keyable && (Features.advanced || Keyframes.row(root.field).keyed): VerticalLayout {
             alignment: center;
             KeyCluster { field: root.field; }
         }

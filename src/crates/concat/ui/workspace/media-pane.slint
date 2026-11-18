@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Jareer Abdullah and Concat contributors
 
+import { Features } from "../features.slint";
 import { I18n } from "../i18n.slint";
 import { Theme, Fmt, Glyph, Icon, Payload, Tip } from "../primitives/primitives.slint";
 import { Pane, PaneScroll } from "pane.slint";
@@ -2014,7 +2015,9 @@ export component MediaPane inherits Rectangle {
                             current: root.tab == 1;
                             clicked => { root.tab = 1; }
                         }
-                        LibraryTab {
+                        // Shapes, the one shelf here, are an advanced tool
+                        // (features.slint).
+                        if Features.advanced || root.tab == 2: LibraryTab {
                             glyph: Glyph.sticker;
                             label: I18n.t("mediaPane.stickers");
                             current: root.tab == 2;

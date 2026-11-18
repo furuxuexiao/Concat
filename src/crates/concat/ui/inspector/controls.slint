@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Jareer Abdullah
 
+import { Features } from "../features.slint";
 import { I18n } from "../i18n.slint";
 import { Theme } from "../theme/theme.slint";
 import { Fmt, Focus } from "../util.slint";
@@ -489,8 +490,10 @@ export component Param inherits VerticalLayout {
 
         // After the number field: the cluster is about the value, and it
         // trails whatever last states the value.
-        if root.keyable: Rectangle { width: 6px; }
-        if root.keyable: VerticalLayout {
+        // Keyframes are an advanced tool (features.slint): the cluster is
+        // offered with them on, or on a value that is already keyed.
+        if root.keyable && (Features.advanced || root.key-state.keyed): Rectangle { width: 6px; }
+        if root.keyable && (Features.advanced || root.key-state.keyed): VerticalLayout {
             alignment: center;
             KeyCluster {
                 field: root.field;

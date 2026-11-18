@@ -87,6 +87,12 @@ pub struct Preferences {
     /// it is put. Off by default: a click past the last clip lands there, so
     /// a clip can be dropped at the playhead beyond everything else.
     pub playhead_stops_at_end: bool,
+    /// Settings > General's "Advanced tools": keyframes and their pane,
+    /// masks and the smart brush, shapes, speed curves and the Automation
+    /// page shown. Off by default, so the window offers the tools most
+    /// cuts are made with; see ui/features.slint. Hidden is not removed:
+    /// a project that uses any of them reads and plays the same.
+    pub advanced_tools: bool,
     /// Proxies: a file larger than HD gets a smaller copy written in the
     /// background, and playback at Half and Quarter reads that copy. Off
     /// by default: a proxy is a full re-encode of every large
