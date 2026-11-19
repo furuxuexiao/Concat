@@ -19,6 +19,7 @@
   "captions.couldNotWriteSubtitles": "Subtitrləri yazmaq mümkün olmadı: {0}",
   "captions.downloadTranscriberModelFirst": "Əvvəlcə Ayarlar › Transkriptor bölməsində transkripsiya modelini yükləyin.",
   "captions.dropEndPunctuation": "Drop the comma or full stop a line ends on",
+  "captions.englishOnlyModel": "Quraşdırılmış transkripsiya modeli yalnız ingiliscə eşidir, ona görə başqa dildə nitq altyazıya çevrilməyəcək. Ayarlardan çoxdilli model yükləyin.",
   "captions.exportSrt": "SRT ixrac et…",
   "captions.exportedBusiestLane": "{0} subtitr {1} faylına yazıldı, ən çox başlığı olan zolaqdan. Başqa zolağı yazmaq üçün əvvəlcə onun başlıqlarından birini seçin.",
   "captions.exportedCaptions": "{0} subtitr {1} faylına yazıldı",

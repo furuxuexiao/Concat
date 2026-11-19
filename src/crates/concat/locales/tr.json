@@ -19,6 +19,7 @@
   "captions.couldNotWriteSubtitles": "Altyazılar yazılamadı: {0}",
   "captions.downloadTranscriberModelFirst": "Önce Ayarlar › Yazıya dökme bölümünden bir model indirin.",
   "captions.dropEndPunctuation": "Drop the comma or full stop a line ends on",
+  "captions.englishOnlyModel": "Yüklü döküm modeli yalnızca İngilizce anlıyor, bu yüzden başka dillerdeki konuşmalar altyazılanmayacak. Ayarlar'dan çok dilli bir model indirin.",
   "captions.exportSrt": "SRT dışa aktar…",
   "captions.exportedBusiestLane": "{0} altyazı, en çok başlık içeren parçadan {1} konumuna yazıldı. Başka bir parçayı yazmak için önce o parçanın başlıklarından birini seçin.",
   "captions.exportedCaptions": "{0} altyazı {1} konumuna yazıldı",

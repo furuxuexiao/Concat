@@ -595,8 +595,9 @@ impl CaptionsPane {
     /// The language is the one picked in the sheet before, else Chinese
     /// under a Chinese interface - Simplified under 简体中文, Traditional
     /// under 繁體中文 (whisper is then prompted, and its words put, in those
-    /// characters; see concat_speech::hans), else whisper's to hear. Lines
-    /// are cut as the
+    /// characters; see concat_speech::hans), else whisper's to hear. An
+    /// English-only model is passed over for an installed one that hears
+    /// the language, and said when there is none. Lines are cut as the
     /// sheet's saved choice says, by the frame unless changed, and end
     /// without a comma or full stop unless that was turned off. With no
     /// transcriber installed, or nothing to hear on the timeline, the panel
@@ -642,12 +643,23 @@ impl CaptionsPane {
         // `open_on` kept the sheet's remembered pick when it is still one
         // the list offers.
         self.language = auto_language(&i18n::current(), self.language.as_deref());
+        let wants_other = self.language.as_deref().is_some_and(|code| code != "en");
+        let ids: Vec<String> = installed(&studio.settings.transcribers)
+            .iter()
+            .map(|model| model.id.clone())
+            .collect();
+        let (model, deaf) = hearing_model(&ids, self.model, wants_other);
+        self.model = model;
         log::info!(
-            "captions: auto · language {} · {} of {} clips with sound",
+            "captions: auto · language {} · {} of {} clips with sound · model {}",
             self.language.as_deref().unwrap_or("heard"),
             subjects.len(),
             heard.len(),
+            ids.get(model).map_or("none", String::as_str),
         );
+        if deaf {
+            studio.notify(&t("captions.englishOnlyModel"), true);
+        }
         self.queue = subjects;
         if self.next_in_queue(studio) {
             studio.notify(&t("captions.autoStarted"), false);
@@ -1569,6 +1581,25 @@ fn replaced(earlier: &[(String, f64)], spans: &[(f64, f64)]) -> Vec<String> {
         .collect()
 }
 
+/// The model a run asks: the chosen one, unless it hears only English and
+/// another language is wanted - then the first installed model that hears
+/// more. True besides when every installed model hears only English, which
+/// the person is told: whisper's English model writes English for Chinese.
+fn hearing_model(installed: &[String], chosen: usize, wants_other: bool) -> (usize, bool) {
+    let english_only = |index: usize| {
+        installed
+            .get(index)
+            .is_some_and(|id| concat_speech::transcribe::english_only(id))
+    };
+    if !wants_other || !english_only(chosen) {
+        return (chosen, false);
+    }
+    match (0..installed.len()).find(|index| !english_only(*index)) {
+        Some(index) => (index, false),
+        None => (chosen, true),
+    }
+}
+
 /// The clips on the current timeline that have sound, in the order they
 /// play: an audio clip, or a video whose file has an audio stream.
 fn sources(studio: &Studio) -> Vec<Source> {
@@ -2075,6 +2106,31 @@ mod tests {
         );
         assert!(super::replaced(&earlier, &[(50.0, 60.0)]).is_empty());
         assert!(super::replaced(&[], &[(0.0, 10.0)]).is_empty());
+    }
+
+    /// An English-only model is passed over for one that hears Chinese,
+    /// and said when it is all there is.
+    #[test]
+    fn an_english_only_model_is_not_used_for_chinese() {
+        let models =
+            |ids: &[&str]| -> Vec<String> { ids.iter().map(|id| (*id).to_owned()).collect() };
+        assert_eq!(
+            super::hearing_model(&models(&["base.en", "small"]), 0, true),
+            (1, false)
+        );
+        assert_eq!(
+            super::hearing_model(&models(&["base.en"]), 0, true),
+            (0, true)
+        );
+        assert_eq!(
+            super::hearing_model(&models(&["base.en", "small"]), 0, false),
+            (0, false)
+        );
+        assert_eq!(
+            super::hearing_model(&models(&["small", "base.en"]), 0, true),
+            (0, false)
+        );
+        assert_eq!(super::hearing_model(&[], 0, true), (0, false));
     }
 
     /// The language asked for: the sheet's pick, else Simplified Chinese

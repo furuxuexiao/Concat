@@ -19,6 +19,7 @@
   "captions.couldNotWriteSubtitles": "نوشتن زیرنویس‌ها ممکن نبود: {0}",
   "captions.downloadTranscriberModelFirst": "ابتدا یک مدل Transcriber را از «تنظیمات › Transcriber» دانلود کنید.",
   "captions.dropEndPunctuation": "Drop the comma or full stop a line ends on",
+  "captions.englishOnlyModel": "مدل رونویسی نصب‌شده فقط انگلیسی می‌فهمد، بنابراین گفتار به زبان‌های دیگر زیرنویس نمی‌شود. یک مدل چندزبانه را از تنظیمات دانلود کنید.",
   "captions.exportSrt": "خروجی SRT…",
   "captions.exportedBusiestLane": "{0} زیرنویس در {1} نوشته شد، از لاینی که بیشترین عنوان را دارد. برای نوشتن لاین دیگر، اول یکی از عنوان‌هایش را انتخاب کنید.",
   "captions.exportedCaptions": "{0} زیرنویس در {1} نوشته شد",

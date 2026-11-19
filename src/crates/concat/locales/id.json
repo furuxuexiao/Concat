@@ -19,6 +19,7 @@
   "captions.couldNotWriteSubtitles": "Tidak dapat menulis subtitel: {0}",
   "captions.downloadTranscriberModelFirst": "Unduh dulu model transkripsi di Pengaturan › Transkripsi.",
   "captions.dropEndPunctuation": "Drop the comma or full stop a line ends on",
+  "captions.englishOnlyModel": "Transkriber yang terpasang hanya memahami bahasa Inggris, jadi ucapan dalam bahasa lain tidak akan diberi teks. Unduh model multibahasa di Pengaturan.",
   "captions.exportSrt": "Ekspor SRT…",
   "captions.exportedBusiestLane": "{0} subtitel ditulis ke {1}, dari lajur dengan judul terbanyak. Untuk menulis lajur lain, pilih dulu salah satu judulnya.",
   "captions.exportedCaptions": "{0} subtitel ditulis ke {1}",

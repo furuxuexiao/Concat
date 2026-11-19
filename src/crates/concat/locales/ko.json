@@ -19,6 +19,7 @@
   "captions.couldNotWriteSubtitles": "자막을 쓸 수 없습니다: {0}",
   "captions.downloadTranscriberModelFirst": "먼저 설정 › 받아쓰기에서 모델을 다운로드하세요.",
   "captions.dropEndPunctuation": "Drop the comma or full stop a line ends on",
+  "captions.englishOnlyModel": "설치된 받아쓰기 모델은 영어만 알아들어서 다른 언어의 음성에는 자막이 생성되지 않습니다. 설정에서 다국어 모델을 다운로드하세요.",
   "captions.exportSrt": "SRT 내보내기…",
   "captions.exportedBusiestLane": "제목이 가장 많은 트랙에서 자막 {0}개를 {1}에 썼습니다. 다른 트랙을 쓰려면 먼저 그 트랙의 제목 하나를 선택하세요.",
   "captions.exportedCaptions": "자막 {0}개를 {1}에 썼습니다",

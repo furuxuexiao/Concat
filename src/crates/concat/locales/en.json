@@ -19,6 +19,7 @@
   "captions.couldNotWriteSubtitles": "Could not write the subtitles: {0}",
   "captions.downloadTranscriberModelFirst": "Download a transcriber model in Settings › Transcriber first.",
   "captions.dropEndPunctuation": "Drop the comma or full stop a line ends on",
+  "captions.englishOnlyModel": "The installed transcriber hears English only, so speech in any other language will not be captioned. Download a multilingual model in Settings.",
   "captions.exportSrt": "Export SRT…",
   "captions.exportedBusiestLane": "Wrote {0} captions to {1}, from the lane with the most titles. To write another lane, select one of its titles first.",
   "captions.exportedCaptions": "Wrote {0} captions to {1}",

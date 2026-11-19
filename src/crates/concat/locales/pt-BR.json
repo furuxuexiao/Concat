@@ -19,6 +19,7 @@
   "captions.couldNotWriteSubtitles": "Não foi possível gravar as legendas: {0}",
   "captions.downloadTranscriberModelFirst": "Baixe primeiro um modelo de transcrição em Configurações › Transcrição.",
   "captions.dropEndPunctuation": "Drop the comma or full stop a line ends on",
+  "captions.englishOnlyModel": "O transcritor instalado só entende inglês, então falas em outros idiomas não serão legendadas. Baixe um modelo multilíngue em Configurações.",
   "captions.exportSrt": "Exportar SRT…",
   "captions.exportedBusiestLane": "{0} legendas gravadas em {1}, da faixa com mais títulos. Para gravar outra faixa, selecione antes um dos títulos dela.",
   "captions.exportedCaptions": "{0} legendas gravadas em {1}",

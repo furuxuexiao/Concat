@@ -19,6 +19,7 @@
   "captions.couldNotWriteSubtitles": "Impossibile scrivere i sottotitoli: {0}",
   "captions.downloadTranscriberModelFirst": "Scarica prima un modello di trascrizione in Impostazioni › Trascrizione.",
   "captions.dropEndPunctuation": "Drop the comma or full stop a line ends on",
+  "captions.englishOnlyModel": "Il trascrittore installato capisce solo l'inglese, quindi il parlato in altre lingue non verrà sottotitolato. Scarica un modello multilingue nelle Impostazioni.",
   "captions.exportSrt": "Esporta SRT…",
   "captions.exportedBusiestLane": "{0} sottotitoli scritti in {1}, dalla traccia con più titoli. Per scrivere un’altra traccia, selezionane prima uno dei titoli.",
   "captions.exportedCaptions": "{0} sottotitoli scritti in {1}",

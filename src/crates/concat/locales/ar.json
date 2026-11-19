@@ -19,6 +19,7 @@
   "captions.couldNotWriteSubtitles": "تعذّرت كتابة الترجمات: {0}",
   "captions.downloadTranscriberModelFirst": "نزّل أولًا نموذج تفريغ نصي من الإعدادات › التفريغ النصي.",
   "captions.dropEndPunctuation": "Drop the comma or full stop a line ends on",
+  "captions.englishOnlyModel": "أداة التفريغ المثبّتة لا تفهم إلا الإنجليزية، لذا لن يُترجَم الكلام بأي لغة أخرى. نزّل نموذجًا متعدد اللغات من الإعدادات.",
   "captions.exportSrt": "تصدير SRT…",
   "captions.exportedBusiestLane": "تمت كتابة {0} من التسميات التوضيحية إلى {1}، من المسار الذي يضم أكبر عدد من العناوين. لكتابة مسار آخر، حدّد أحد عناوينه أولًا.",
   "captions.exportedCaptions": "تمت كتابة {0} من التسميات التوضيحية إلى {1}",

@@ -19,6 +19,7 @@
   "captions.couldNotWriteSubtitles": "Impossible d’écrire les sous-titres : {0}",
   "captions.downloadTranscriberModelFirst": "Téléchargez d'abord un modèle de transcription dans Réglages › Transcription.",
   "captions.dropEndPunctuation": "Drop the comma or full stop a line ends on",
+  "captions.englishOnlyModel": "Le transcripteur installé ne comprend que l'anglais : la parole dans une autre langue ne sera pas sous-titrée. Téléchargez un modèle multilingue dans les Réglages.",
   "captions.exportSrt": "Exporter en SRT…",
   "captions.exportedBusiestLane": "{0} sous-titres écrits dans {1}, depuis la piste qui a le plus de titres. Pour écrire une autre piste, sélectionnez d’abord l’un de ses titres.",
   "captions.exportedCaptions": "{0} sous-titres écrits dans {1}",

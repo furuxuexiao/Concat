@@ -19,6 +19,7 @@
   "captions.couldNotWriteSubtitles": "לא ניתן לכתוב את הכתוביות: {0}",
   "captions.downloadTranscriberModelFirst": "יש להוריד קודם מודל תמלול בהגדרות › מתמלל.",
   "captions.dropEndPunctuation": "Drop the comma or full stop a line ends on",
+  "captions.englishOnlyModel": "המתמלל המותקן מבין אנגלית בלבד, ולכן דיבור בשפה אחרת לא יקבל כתוביות. הורידו מודל רב־לשוני בהגדרות.",
   "captions.exportSrt": "ייצוא SRT…",
   "captions.exportedBusiestLane": "{0} כתוביות נכתבו אל {1}, מהערוץ שיש בו הכי הרבה כותרות. כדי לכתוב ערוץ אחר, בחרו קודם אחת מהכותרות שלו.",
   "captions.exportedCaptions": "{0} כתוביות נכתבו אל {1}",

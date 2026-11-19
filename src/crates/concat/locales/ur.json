@@ -19,6 +19,7 @@
   "captions.couldNotWriteSubtitles": "سب ٹائٹلز لکھے نہیں جا سکے: {0}",
   "captions.downloadTranscriberModelFirst": "پہلے ترتیبات › ٹرانسکرائبر میں سے کوئی ٹرانسکرائبر ماڈل ڈاؤن لوڈ کریں۔",
   "captions.dropEndPunctuation": "Drop the comma or full stop a line ends on",
+  "captions.englishOnlyModel": "انسٹال شدہ ٹرانسکرائبر صرف انگریزی سمجھتا ہے، اس لیے کسی اور زبان کی گفتگو کے کیپشن نہیں بنیں گے۔ ترتیبات سے کثیر لسانی ماڈل ڈاؤن لوڈ کریں۔",
   "captions.exportSrt": "SRT ایکسپورٹ کریں…",
   "captions.exportedBusiestLane": "{0} کیپشن {1} میں لکھے گئے، اس لین سے جس میں سب سے زیادہ ٹائٹل ہیں۔ کوئی اور لین لکھنے کے لیے پہلے اس کا کوئی ٹائٹل منتخب کریں۔",
   "captions.exportedCaptions": "{0} کیپشن {1} میں لکھے گئے",

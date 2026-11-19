@@ -19,6 +19,7 @@
   "captions.couldNotWriteSubtitles": "Не удалось записать субтитры: {0}",
   "captions.downloadTranscriberModelFirst": "Сначала скачайте модель распознавания в Настройки › Распознавание.",
   "captions.dropEndPunctuation": "Drop the comma or full stop a line ends on",
+  "captions.englishOnlyModel": "Установленная модель распознавания понимает только английский, поэтому речь на других языках не получит субтитров. Скачайте многоязычную модель в Настройках.",
   "captions.exportSrt": "Экспорт SRT…",
   "captions.exportedBusiestLane": "Субтитры ({0}) записаны в {1} с дорожки, где больше всего титров. Чтобы записать другую дорожку, сначала выделите один из её титров.",
   "captions.exportedCaptions": "Субтитры ({0}) записаны в {1}",

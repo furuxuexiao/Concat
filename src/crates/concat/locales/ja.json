@@ -19,6 +19,7 @@
   "captions.couldNotWriteSubtitles": "字幕を書き出せませんでした: {0}",
   "captions.downloadTranscriberModelFirst": "まず「設定 › 文字起こし」でモデルをダウンロードしてください。",
   "captions.dropEndPunctuation": "文末の句読点を削除",
+  "captions.englishOnlyModel": "インストール済みの文字起こしモデルは英語しか聞き取れないため、他の言語の音声には字幕が付きません。設定から多言語モデルをダウンロードしてください。",
   "captions.exportSrt": "SRT を書き出す…",
   "captions.exportedBusiestLane": "タイトルが最も多いレーンから {0} 件の字幕を {1} に書き出しました。別のレーンを書き出すには、先にそのレーンのタイトルを選択してください。",
   "captions.exportedCaptions": "{0} 件の字幕を {1} に書き出しました",

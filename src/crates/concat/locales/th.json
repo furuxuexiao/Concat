@@ -19,6 +19,7 @@
   "captions.couldNotWriteSubtitles": "เขียนคำบรรยายไม่ได้: {0}",
   "captions.downloadTranscriberModelFirst": "ดาวน์โหลดโมเดลถอดเสียงก่อนที่ การตั้งค่า › ตัวถอดเสียง",
   "captions.dropEndPunctuation": "Drop the comma or full stop a line ends on",
+  "captions.englishOnlyModel": "ตัวถอดเสียงที่ติดตั้งไว้ฟังได้เฉพาะภาษาอังกฤษ จึงจะไม่มีคำบรรยายสำหรับเสียงพูดภาษาอื่น ดาวน์โหลดโมเดลหลายภาษาได้ในการตั้งค่า",
   "captions.exportSrt": "ส่งออก SRT…",
   "captions.exportedBusiestLane": "เขียนคำบรรยาย {0} รายการไปที่ {1} แล้ว จากเลนที่มีไตเติลมากที่สุด หากต้องการเขียนเลนอื่น ให้เลือกไตเติลหนึ่งในเลนนั้นก่อน",
   "captions.exportedCaptions": "เขียนคำบรรยาย {0} รายการไปที่ {1} แล้ว",

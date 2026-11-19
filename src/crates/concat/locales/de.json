@@ -19,6 +19,7 @@
   "captions.couldNotWriteSubtitles": "Die Untertitel konnten nicht geschrieben werden: {0}",
   "captions.downloadTranscriberModelFirst": "Lade zuerst ein Transkriptionsmodell unter Einstellungen › Transkription herunter.",
   "captions.dropEndPunctuation": "Drop the comma or full stop a line ends on",
+  "captions.englishOnlyModel": "Der installierte Transkribierer versteht nur Englisch, Sprache in anderen Sprachen wird daher nicht untertitelt. Lade in den Einstellungen ein mehrsprachiges Modell herunter.",
   "captions.exportSrt": "SRT exportieren…",
   "captions.exportedBusiestLane": "{0} Untertitel nach {1} geschrieben, aus der Spur mit den meisten Titeln. Um eine andere Spur zu schreiben, wähle zuerst einen ihrer Titel aus.",
   "captions.exportedCaptions": "{0} Untertitel nach {1} geschrieben",

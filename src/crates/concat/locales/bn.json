@@ -19,6 +19,7 @@
   "captions.couldNotWriteSubtitles": "সাবটাইটেল লেখা যায়নি: {0}",
   "captions.downloadTranscriberModelFirst": "আগে সেটিংস › ট্রান্সক্রাইবারে একটি ট্রান্সক্রাইবার মডেল ডাউনলোড করুন।",
   "captions.dropEndPunctuation": "Drop the comma or full stop a line ends on",
+  "captions.englishOnlyModel": "ইনস্টল করা ট্রান্সক্রাইবার শুধু ইংরেজি শোনে, তাই অন্য কোনো ভাষার কথার ক্যাপশন হবে না। সেটিংস থেকে বহুভাষিক মডেল ডাউনলোড করুন।",
   "captions.exportSrt": "SRT এক্সপোর্ট…",
   "captions.exportedBusiestLane": "{0}টি ক্যাপশন {1}-এ লেখা হয়েছে, সবচেয়ে বেশি টাইটেল থাকা লেন থেকে। অন্য লেন লিখতে আগে সেটির একটি টাইটেল সিলেক্ট করুন।",
   "captions.exportedCaptions": "{0}টি ক্যাপশন {1}-এ লেখা হয়েছে",

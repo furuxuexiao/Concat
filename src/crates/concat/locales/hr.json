@@ -19,6 +19,7 @@
   "captions.couldNotWriteSubtitles": "Titlove nije moguće zapisati: {0}",
   "captions.downloadTranscriberModelFirst": "Prvo preuzmite model za transkripciju u Postavke › Transkriber.",
   "captions.dropEndPunctuation": "Drop the comma or full stop a line ends on",
+  "captions.englishOnlyModel": "Instalirani transkriptor razumije samo engleski, pa govor na drugim jezicima neće biti titlovan. Preuzmite višejezični model u Postavkama.",
   "captions.exportSrt": "Izvezi SRT…",
   "captions.exportedBusiestLane": "Zapisano {0} titlova u {1}, s trake s najviše naslova. Za drugu traku najprije odaberite jedan od njezinih naslova.",
   "captions.exportedCaptions": "Zapisano {0} titlova u {1}",

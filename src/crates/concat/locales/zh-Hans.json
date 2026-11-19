@@ -19,6 +19,7 @@
   "captions.couldNotWriteSubtitles": "无法写入字幕：{0}",
   "captions.downloadTranscriberModelFirst": "请先在“设置 › 转录器”中下载转录模型。",
   "captions.dropEndPunctuation": "去掉句末标点",
+  "captions.englishOnlyModel": "已安装的识别模型只能听懂英语，中文等其他语言的语音无法生成字幕。请在设置中下载多语言模型。",
   "captions.exportSrt": "导出 SRT…",
   "captions.exportedBusiestLane": "已从标题最多的轨道将 {0} 条字幕写入 {1}。要写出其他轨道，请先选中该轨道上的一个标题。",
   "captions.exportedCaptions": "已将 {0} 条字幕写入 {1}",

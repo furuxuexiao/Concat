@@ -19,6 +19,7 @@
   "captions.couldNotWriteSubtitles": "Không thể ghi phụ đề: {0}",
   "captions.downloadTranscriberModelFirst": "Hãy tải mô hình chuyển giọng nói thành văn bản trong Cài đặt › Trình chuyển văn bản trước.",
   "captions.dropEndPunctuation": "Drop the comma or full stop a line ends on",
+  "captions.englishOnlyModel": "Mô hình chép lời đã cài chỉ nghe được tiếng Anh, nên lời nói bằng ngôn ngữ khác sẽ không có phụ đề. Hãy tải mô hình đa ngôn ngữ trong Cài đặt.",
   "captions.exportSrt": "Xuất SRT…",
   "captions.exportedBusiestLane": "Đã ghi {0} phụ đề vào {1}, từ làn có nhiều tiêu đề nhất. Để ghi làn khác, hãy chọn trước một tiêu đề của làn đó.",
   "captions.exportedCaptions": "Đã ghi {0} phụ đề vào {1}",

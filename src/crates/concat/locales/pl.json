@@ -19,6 +19,7 @@
   "captions.couldNotWriteSubtitles": "Nie udało się zapisać napisów: {0}",
   "captions.downloadTranscriberModelFirst": "Najpierw pobierz model transkrypcji w Ustawienia › Transkrypcja.",
   "captions.dropEndPunctuation": "Drop the comma or full stop a line ends on",
+  "captions.englishOnlyModel": "Zainstalowany model transkrypcji rozumie tylko angielski, więc mowa w innych językach nie otrzyma napisów. Pobierz model wielojęzyczny w Ustawieniach.",
   "captions.exportSrt": "Eksportuj SRT…",
   "captions.exportedBusiestLane": "Zapisane napisy: {0}, w {1}, ze ścieżki z największą liczbą napisów. Aby zapisać inną ścieżkę, najpierw zaznacz jeden z jej napisów.",
   "captions.exportedCaptions": "Zapisane napisy: {0}, w {1}",

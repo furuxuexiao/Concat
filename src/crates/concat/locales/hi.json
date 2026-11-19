@@ -19,6 +19,7 @@
   "captions.couldNotWriteSubtitles": "सबटाइटल लिखे नहीं जा सके: {0}",
   "captions.downloadTranscriberModelFirst": "पहले सेटिंग › ट्रांसक्राइबर में एक ट्रांसक्राइबर मॉडल डाउनलोड करें।",
   "captions.dropEndPunctuation": "Drop the comma or full stop a line ends on",
+  "captions.englishOnlyModel": "इंस्टॉल किया गया ट्रांसक्राइबर केवल अंग्रेज़ी समझता है, इसलिए किसी और भाषा की बोली के कैप्शन नहीं बनेंगे। सेटिंग्स में बहुभाषी मॉडल डाउनलोड करें।",
   "captions.exportSrt": "SRT एक्सपोर्ट करें…",
   "captions.exportedBusiestLane": "{0} कैप्शन {1} में लिखे गए, सबसे ज़्यादा टाइटल वाली लेन से। कोई दूसरी लेन लिखने के लिए पहले उसका कोई टाइटल चुनें।",
   "captions.exportedCaptions": "{0} कैप्शन {1} में लिखे गए",

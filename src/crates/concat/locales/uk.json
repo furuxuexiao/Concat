@@ -19,6 +19,7 @@
   "captions.couldNotWriteSubtitles": "Не вдалося записати субтитри: {0}",
   "captions.downloadTranscriberModelFirst": "Спершу завантажте модель розпізнавання в Налаштування › Розпізнавання.",
   "captions.dropEndPunctuation": "Drop the comma or full stop a line ends on",
+  "captions.englishOnlyModel": "Встановлена модель розпізнавання розуміє лише англійську, тож мовлення іншими мовами не отримає субтитрів. Завантажте багатомовну модель у Налаштуваннях.",
   "captions.exportSrt": "Експорт SRT…",
   "captions.exportedBusiestLane": "Субтитри ({0}) записано в {1} з доріжки, де найбільше титрів. Щоб записати іншу доріжку, спершу виділіть один з її титрів.",
   "captions.exportedCaptions": "Субтитри ({0}) записано в {1}",
