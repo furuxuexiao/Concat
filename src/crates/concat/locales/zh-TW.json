@@ -253,6 +253,7 @@
   "controls.percentOfHeight": "高度的 {0}%",
   "controls.silent": "無聲",
   "export.adviceEightBit": "{0} 只接受 8 位元 SDR，已關閉 10 位元和 HDR。",
+  "export.adviceNot4k": "{0} 要求 4K 作品，如 3840×2160（短邊至少 1600），目前作品只有 {1}P。",
   "export.adviceTooLarge": "目前作品解析度高於 {1}P，{0} 會將其縮小。",
   "export.adviceTooSmall": "{0} 要求解析度至少 {1}P，目前作品只有 {2}P。",
   "export.adviceUpright": "{0} 以直式影片為主，而目前作品是橫式。",

@@ -253,6 +253,7 @@
   "controls.percentOfHeight": "اونچائی کا {0}%",
   "controls.silent": "خاموش",
   "export.adviceEightBit": "{0} صرف 8 بٹ SDR لیتا ہے، اس لیے 10 بٹ اور HDR بند ہیں۔",
+  "export.adviceNot4k": "{0} کو 4K ترمیم چاہیے، جیسے 3840 × 2160 (چھوٹی سمت کم از کم 1600)؛ یہ ترمیم {1}p ہے۔",
   "export.adviceTooLarge": "اس ترمیم کی ریزولوشن {1}p سے زیادہ ہے؛ {0} اسے چھوٹا کر دے گا۔",
   "export.adviceTooSmall": "{0} کم از کم {1}p ریزولوشن چاہتا ہے؛ یہ ترمیم {2}p ہے۔",
   "export.adviceUpright": "{0} عمودی ویڈیو دکھاتا ہے؛ یہ ترمیم افقی ہے۔",

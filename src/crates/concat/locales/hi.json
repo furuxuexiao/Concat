@@ -253,6 +253,7 @@
   "controls.percentOfHeight": "ऊँचाई का {0}%",
   "controls.silent": "मौन",
   "export.adviceEightBit": "{0} केवल 8-बिट SDR लेता है, इसलिए 10-बिट और HDR बंद हैं।",
+  "export.adviceNot4k": "{0} 4K संपादन चाहता है, जैसे 3840 × 2160 (छोटी भुजा कम से कम 1600); यह संपादन {1}p है।",
   "export.adviceTooLarge": "इस संपादन का रिज़ॉल्यूशन {1}p से अधिक है; {0} इसे छोटा कर देगा।",
   "export.adviceTooSmall": "{0} कम से कम {1}p रिज़ॉल्यूशन चाहता है; यह संपादन {2}p है।",
   "export.adviceUpright": "{0} खड़ा वीडियो दिखाता है; यह संपादन आड़ा है।",

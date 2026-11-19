@@ -253,6 +253,7 @@
   "controls.percentOfHeight": "{0}% wysokości",
   "controls.silent": "Cisza",
   "export.adviceEightBit": "{0} przyjmuje tylko 8-bitowe SDR, więc 10 bitów i HDR są wyłączone.",
+  "export.adviceNot4k": "{0} wymaga montażu 4K, np. 3840 × 2160 (co najmniej 1600 na krótszym boku); ten montaż ma {1}p.",
   "export.adviceTooLarge": "Ten montaż przekracza {1}p; {0} go zmniejszy.",
   "export.adviceTooSmall": "{0} wymaga rozdzielczości co najmniej {1}p; ten montaż ma {2}p.",
   "export.adviceUpright": "{0} pokazuje pionowe wideo; ten montaż jest poziomy.",

@@ -253,6 +253,7 @@
   "controls.percentOfHeight": "{0} % visine",
   "controls.silent": "Tiho",
   "export.adviceEightBit": "{0} prima samo 8-bitni SDR, pa su 10 bita i HDR isključeni.",
+  "export.adviceNot4k": "{0} traži 4K montažu, npr. 3840 × 2160 (najmanje 1600 po kraćoj strani); ova montaža ima {1}p.",
   "export.adviceTooLarge": "Ova montaža je iznad {1}p; {0} će je smanjiti.",
   "export.adviceTooSmall": "{0} traži razlučivost od najmanje {1}p; ova montaža ima {2}p.",
   "export.adviceUpright": "{0} prikazuje uspravni video; ova montaža je položena.",

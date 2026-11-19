@@ -253,6 +253,7 @@
   "controls.percentOfHeight": "{0}٪ از ارتفاع",
   "controls.silent": "بی‌صدا",
   "export.adviceEightBit": "{0} فقط SDR هشت‌بیتی می‌پذیرد، پس ۱۰ بیت و HDR خاموش است.",
+  "export.adviceNot4k": "{0} تدوین 4K می‌خواهد، مثلاً 3840 × 2160 (ضلع کوتاه دست‌کم 1600)؛ این تدوین {1}p است.",
   "export.adviceTooLarge": "وضوح این تدوین بیشتر از {1}p است؛ {0} آن را کوچک می‌کند.",
   "export.adviceTooSmall": "{0} دست‌کم وضوح {1}p می‌خواهد؛ این تدوین {2}p است.",
   "export.adviceUpright": "{0} ویدیوی عمودی نشان می‌دهد؛ این تدوین افقی است.",

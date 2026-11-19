@@ -253,6 +253,7 @@
   "controls.percentOfHeight": "{0}% من الارتفاع",
   "controls.silent": "صامت",
   "export.adviceEightBit": "تقبل {0} SDR بعمق 8 بت فقط، لذا أُوقف 10 بت وHDR.",
+  "export.adviceNot4k": "تطلب {0} مونتاجًا بدقة 4K، مثل 3840 × 2160 (1600 على الأقل في الضلع الأقصر)، وهذا المونتاج {1}p.",
   "export.adviceTooLarge": "دقة هذا المونتاج أعلى من {1}p، وستصغّره {0}.",
   "export.adviceTooSmall": "تطلب {0} دقة {1}p على الأقل، وهذا المونتاج {2}p.",
   "export.adviceUpright": "تعرض {0} الفيديو العمودي، وهذا المونتاج أفقي.",

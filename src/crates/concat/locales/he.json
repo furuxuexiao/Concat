@@ -253,6 +253,7 @@
   "controls.percentOfHeight": "{0}% מהגובה",
   "controls.silent": "שקט",
   "export.adviceEightBit": "{0} מקבלת רק SDR של 8 ביט, לכן 10 ביט ו-HDR כבויים.",
+  "export.adviceNot4k": "{0} דורשת עריכה ב-4K, למשל 3840 × 2160 (לפחות 1600 בצלע הקצרה); העריכה הזו {1}p.",
   "export.adviceTooLarge": "הרזולוציה של העריכה הזו גבוהה מ-{1}p; {0} תקטין אותה.",
   "export.adviceTooSmall": "{0} דורשת רזולוציה של {1}p לפחות; העריכה הזו {2}p.",
   "export.adviceUpright": "{0} מציגה וידאו לאורך; העריכה הזו לרוחב.",

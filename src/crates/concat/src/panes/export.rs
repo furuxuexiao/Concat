@@ -427,6 +427,12 @@ impl ExportPane {
                     (_, Shape::Square) => tf("export.adviceWideSquare", &[&name]),
                     _ => tf("export.adviceWide", &[&name]),
                 },
+                // Bilibili's 4K floor is 1600 on the short side, so a
+                // 3840 x 1600 cut counts; "at least 1600P" is no label
+                // anyone knows, so the note says 4K and gives the size.
+                Advice::TooSmall(_) if platform == Platform::Bilibili4k => {
+                    tf("export.adviceNot4k", &[&name, &width.min(height)])
+                }
                 Advice::TooSmall(lines) => tf(
                     "export.adviceTooSmall",
                     &[&name, &lines, &width.min(height)],

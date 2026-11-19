@@ -253,6 +253,7 @@
   "controls.percentOfHeight": "{0}% chiều cao",
   "controls.silent": "Im lặng",
   "export.adviceEightBit": "{0} chỉ nhận SDR 8-bit, nên 10-bit và HDR đã tắt.",
+  "export.adviceNot4k": "{0} cần bản dựng 4K, như 3840 × 2160 (cạnh ngắn ít nhất 1600); bản dựng này là {1}p.",
   "export.adviceTooLarge": "Độ phân giải của bản dựng này cao hơn {1}p; {0} sẽ thu nhỏ nó.",
   "export.adviceTooSmall": "{0} cần độ phân giải ít nhất {1}p; bản dựng này là {2}p.",
   "export.adviceUpright": "{0} hiển thị video dọc; bản dựng này nằm ngang.",

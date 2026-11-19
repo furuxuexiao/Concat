@@ -253,6 +253,7 @@
   "controls.percentOfHeight": "{0}% van de hoogte",
   "controls.silent": "Stil",
   "export.adviceEightBit": "{0} neemt alleen 8-bit SDR, dus 10-bit en HDR staan uit.",
+  "export.adviceNot4k": "{0} vraagt een 4K-montage, zoals 3840 × 2160 (minstens 1600 aan de korte kant); deze montage is {1}p.",
   "export.adviceTooLarge": "Deze montage is hoger dan {1}p; {0} schaalt hem omlaag.",
   "export.adviceTooSmall": "{0} vraagt minstens {1}p resolutie; deze montage is {2}p.",
   "export.adviceUpright": "{0} toont staande video; deze montage is liggend.",

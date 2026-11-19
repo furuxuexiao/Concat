@@ -253,6 +253,7 @@
   "controls.percentOfHeight": "{0} % der Höhe",
   "controls.silent": "Stumm",
   "export.adviceEightBit": "{0} nimmt nur 8-Bit-SDR, daher sind 10 Bit und HDR aus.",
+  "export.adviceNot4k": "{0} verlangt einen 4K-Schnitt, etwa 3840 × 2160 (mindestens 1600 an der kurzen Seite); dieser Schnitt hat {1}p.",
   "export.adviceTooLarge": "Dieser Schnitt liegt über {1}p; {0} verkleinert ihn.",
   "export.adviceTooSmall": "{0} verlangt mindestens {1}p Auflösung; dieser Schnitt hat {2}p.",
   "export.adviceUpright": "{0} zeigt Hochformat; dieser Schnitt ist Querformat.",

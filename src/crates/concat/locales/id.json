@@ -253,6 +253,7 @@
   "controls.percentOfHeight": "{0}% dari tinggi",
   "controls.silent": "Senyap",
   "export.adviceEightBit": "{0} hanya menerima SDR 8-bit, jadi 10-bit dan HDR dimatikan.",
+  "export.adviceNot4k": "{0} meminta editan 4K, seperti 3840 × 2160 (sisi pendek setidaknya 1600); editan ini {1}p.",
   "export.adviceTooLarge": "Resolusi editan ini di atas {1}p; {0} akan memperkecilnya.",
   "export.adviceTooSmall": "{0} meminta resolusi setidaknya {1}p; editan ini {2}p.",
   "export.adviceUpright": "{0} menampilkan video tegak; editan ini mendatar.",
