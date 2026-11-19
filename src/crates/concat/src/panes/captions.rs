@@ -1524,8 +1524,8 @@ fn is_bed(clip: &Heard, others: &[&Heard]) -> bool {
 /// may be speaking: voices and plain sound, but not music, a music bed
 /// (see [`is_bed`]) or what is silent. Ranked voices first, then a
 /// video's own sound before a plain audio file that may be a song laid
-/// under it at full level, then the louder, then the longer. Empty when
-/// nothing is left.
+/// under it at full level - longer, covering it and no quieter than it -
+/// then the louder, then the longer. Empty when nothing is left.
 fn auto_subjects(selected: Option<&str>, heard: &[Heard]) -> Vec<(String, usize)> {
     if let Some(clip) = selected.and_then(|id| {
         heard
@@ -1543,11 +1543,26 @@ fn auto_subjects(selected: Option<&str>, heard: &[Heard]) -> Vec<(String, usize)
         .copied()
         .filter(|clip| !is_bed(clip, &live))
         .collect();
+    // An audio file laid under a video's own sound - longer than it,
+    // covering at least half of it, and no quieter than it is - may be a
+    // song at full level, so ranks after it at the same hearing. One the
+    // video was turned down beneath, or that runs within a longer video,
+    // is not under it: a voiceover over b-roll ranks by its level.
+    let under = |clip: &Heard| {
+        clip.bed
+            && live.iter().any(|other| {
+                !other.bed
+                    && other.id != clip.id
+                    && clip.duration > other.duration
+                    && clip.overlap(other) >= 0.5 * other.duration
+                    && other.volume >= clip.volume
+            })
+    };
     let mut ranked = chosen.clone();
     ranked.sort_by(|a, b| {
         a.hearing
             .cmp(&b.hearing)
-            .then(a.bed.cmp(&b.bed))
+            .then(under(a).cmp(&under(b)))
             .then(b.volume.total_cmp(&a.volume))
             .then(b.duration.total_cmp(&a.duration))
             .then(a.start.total_cmp(&b.start))
@@ -2060,6 +2075,51 @@ mod tests {
         ]);
         let texts: Vec<&str> = merged.iter().map(|line| line.text.as_str()).collect();
         assert_eq!(texts, ["hello", "bye", "na na"]);
+    }
+
+    /// An unnamed voiceover over b-roll that was turned down under it is
+    /// not taken for a song under the pictures: it outranks their sound,
+    /// across several clips as over one. Where it runs within a longer
+    /// b-roll clip it is not under it either, and ranks by level and length.
+    #[test]
+    fn an_unnamed_voiceover_outranks_the_quieter_b_roll_it_runs_over() {
+        use super::Hearing::Plain;
+        let voiceover = |duration: f64| super::Heard {
+            bed: true,
+            ..heard("vo", 0.0, duration, Plain)
+        };
+        let broll = |id: &str, start: f64, duration: f64, volume: f64| super::Heard {
+            volume,
+            ..heard(id, start, duration, Plain)
+        };
+        let rank = |subjects: &[(String, usize)], id: &str| {
+            subjects.iter().find(|(of, _)| of == id).map(|s| s.1)
+        };
+        let one = super::auto_subjects(None, &[voiceover(60.0), broll("b", 10.0, 5.0, 0.4)]);
+        assert_eq!(ids(&one), ["vo", "b"]);
+        assert_eq!((rank(&one, "vo"), rank(&one, "b")), (Some(0), Some(1)));
+        let three = super::auto_subjects(
+            None,
+            &[
+                broll("b1", 0.0, 5.0, 0.5),
+                voiceover(15.0),
+                broll("b2", 5.0, 5.0, 0.5),
+                broll("b3", 10.0, 5.0, 0.5),
+            ],
+        );
+        assert_eq!(rank(&three, "vo"), Some(0));
+        // Within a longer b-roll clip, at a level above it: first.
+        let within = super::auto_subjects(
+            None,
+            &[
+                broll("b", 0.0, 30.0, 0.8),
+                super::Heard {
+                    start: 10.0,
+                    ..voiceover(8.0)
+                },
+            ],
+        );
+        assert_eq!(rank(&within, "vo"), Some(0));
     }
 
     /// What the timeline knows of a clip's sound says whether it is a
