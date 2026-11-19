@@ -594,8 +594,10 @@ impl CaptionsPane {
     /// the captions the first one placed instead of adding a second set.
     /// The language is the one picked in the sheet before, else Chinese
     /// under a Chinese interface - Simplified under 简体中文, Traditional
-    /// under 繁體中文 (whisper is then prompted, and its words put, in those
-    /// characters; see concat_speech::hans), else whisper's to hear. An
+    /// under 繁體中文 (only asked of whisper, by its language and prompt:
+    /// Simplified is also converted afterwards, but there is no
+    /// Simplified-to-Traditional pass, so Traditional output may mix the
+    /// two scripts; see concat_speech::hans), else whisper's to hear. An
     /// English-only model is passed over for an installed one that hears
     /// the language, and said when there is none. Lines are cut as the
     /// sheet's saved choice says, by the frame unless changed, and end
@@ -1505,8 +1507,10 @@ fn is_bed(clip: &Heard, others: &[&Heard]) -> bool {
 /// rank - 0 the likeliest voice - for where two caption the same moment.
 /// The selected clip alone when it has sound to hear. Else every clip that
 /// may be speaking: voices and plain sound, but not music, a music bed
-/// (see [`is_bed`]) or what is silent. Ranked voices first, then the
-/// louder, then the longer. Empty when nothing is left.
+/// (see [`is_bed`]) or what is silent. Ranked voices first, then a
+/// video's own sound before a plain audio file that may be a song laid
+/// under it at full level, then the louder, then the longer. Empty when
+/// nothing is left.
 fn auto_subjects(selected: Option<&str>, heard: &[Heard]) -> Vec<(String, usize)> {
     if let Some(clip) = selected.and_then(|id| {
         heard
@@ -1528,6 +1532,7 @@ fn auto_subjects(selected: Option<&str>, heard: &[Heard]) -> Vec<(String, usize)
     ranked.sort_by(|a, b| {
         a.hearing
             .cmp(&b.hearing)
+            .then(a.bed.cmp(&b.bed))
             .then(b.volume.total_cmp(&a.volume))
             .then(b.duration.total_cmp(&a.duration))
             .then(a.start.total_cmp(&b.start))
@@ -1993,6 +1998,40 @@ mod tests {
             ids(&super::auto_subjects(None, &[voiceover, broll])),
             ["vo", "broll"]
         );
+    }
+
+    /// An unnamed song at full level, longer than the camera clip with
+    /// sound it runs under, is not a bed - but the clip's own sound still
+    /// ranks first, and its words are kept where the two clash.
+    #[test]
+    fn a_full_level_song_never_outranks_the_camera_clip_it_runs_under() {
+        use super::Hearing::Plain;
+        let song = super::Heard {
+            bed: true,
+            ..heard("bgm", 0.0, 120.0, Plain)
+        };
+        let clips = [heard("v", 5.0, 20.0, Plain), song];
+        let subjects = super::auto_subjects(None, &clips);
+        let rank = |id: &str| subjects.iter().find(|(of, _)| of == id).map(|s| s.1);
+        assert_eq!(rank("v"), Some(0));
+        assert_eq!(rank("bgm"), Some(1));
+        let line = |text: &str, start: f64| super::Placed {
+            text: text.to_owned(),
+            start,
+            duration: 2.0,
+        };
+        let gathered = |id: &str, lines: Vec<super::Placed>| super::Gathered {
+            rank: rank(id).unwrap(),
+            span: (0.0, 120.0),
+            look: (0.35, 0.05),
+            lines,
+        };
+        let merged = super::merge_lines(vec![
+            gathered("bgm", vec![line("la la", 6.0), line("na na", 60.0)]),
+            gathered("v", vec![line("hello", 6.5), line("bye", 12.0)]),
+        ]);
+        let texts: Vec<&str> = merged.iter().map(|line| line.text.as_str()).collect();
+        assert_eq!(texts, ["hello", "bye", "na na"]);
     }
 
     /// What the timeline knows of a clip's sound says whether it is a
