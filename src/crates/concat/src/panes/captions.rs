@@ -22,12 +22,13 @@
 //! or read in while the switch is on, the captions are the script's
 //! words, timed by what the transcriber heard - CapCut's 文稿匹配.
 
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use concat_project::Command;
 use concat_project::caption_lines::{self, LineRules, Timed};
-use concat_project::model::{ClipKind, TextStyle};
+use concat_project::model::{Clip, ClipKind, MediaItem, MediaOrigin, TextStyle, VoiceKind};
 use concat_project::srt;
 use concat_speech::JobStage;
 use concat_speech::transcribe::Segment;
@@ -56,8 +57,9 @@ pub enum CaptionsMsg {
     /// sound, the script otherwise.
     Open,
     /// The tray's "Auto captions": no sheet to fill in. The selected clip's
-    /// voice, else the longest clip with sound, transcribed at once with
-    /// the installed model, in Simplified Chinese under a Simplified
+    /// voice, else every clip on the timeline that may be speaking - music
+    /// left out - one after another, transcribed at once with the
+    /// installed model, in Simplified Chinese under a Simplified
     /// Chinese interface and Traditional under 繁體中文, unless another
     /// language was picked, lines cut by the
     /// frame; see [`CaptionsPane::auto_caption`].
@@ -120,6 +122,28 @@ struct Subject {
     rules: LineRules,
     /// The script the words are matched to, when one was given.
     script: Option<String>,
+    /// Where the clip stands among the run's clips, 0 first: when two of
+    /// them caption the same moment, the lower rank's words are kept.
+    rank: usize,
+    /// The clip's span on the timeline, start and end.
+    span: (f64, f64),
+}
+
+/// One clip's captions, heard and waiting for the run's other clips.
+#[derive(Clone, Debug)]
+struct Gathered {
+    rank: usize,
+    span: (f64, f64),
+    look: (f64, f64),
+    lines: Vec<Placed>,
+}
+
+/// A caption in timeline seconds.
+#[derive(Clone, Debug, PartialEq)]
+struct Placed {
+    text: String,
+    start: f64,
+    duration: f64,
 }
 
 /// Seconds whisper takes over one thirty-second window, per megabyte of
@@ -170,6 +194,15 @@ pub struct CaptionsPane {
     timings: Timings,
     /// What the style picker's search holds.
     pub style_query: String,
+    /// The clips still to transcribe in this run, in timeline order, with
+    /// their rank; see [`auto_subjects`].
+    queue: Vec<(String, usize)>,
+    /// What the run's clips heard so far, placed together when the last
+    /// one is done - one undo step.
+    gathered: Vec<Gathered>,
+    /// The captions the last run placed, by timeline: a run over the same
+    /// clips replaces them instead of stacking a second set.
+    placed: Option<(String, Vec<String>)>,
 }
 
 impl CaptionsPane {
@@ -278,6 +311,8 @@ impl CaptionsPane {
                 studio.host.transcriber.cancel();
                 self.running = false;
                 self.open = false;
+                self.queue.clear();
+                self.gathered.clear();
             }
             CaptionsMsg::Progress(stage) => self.pace.report(stage),
             CaptionsMsg::Finished(result) => {
@@ -292,43 +327,39 @@ impl CaptionsPane {
                         let Some(subject) = subject else {
                             return;
                         };
-                        let look = subject.look;
-                        let (base, font) = caption_base(studio);
-                        let commands: Vec<Command> =
+                        let lines =
                             caption_lines_of(&segments, subject.script.as_deref(), &subject.rules)
                                 .into_iter()
-                                .map(|line| {
-                                    caption_clip(
-                                        line.text,
-                                        subject.start + line.start / subject.speed,
-                                        ((line.end - line.start) / subject.speed).max(0.2),
-                                        look,
-                                        base.as_ref(),
-                                    )
+                                .map(|line| Placed {
+                                    text: line.text,
+                                    start: subject.start + line.start / subject.speed,
+                                    duration: ((line.end - line.start) / subject.speed).max(0.2),
                                 })
                                 .collect();
-                        let count = commands.len();
-                        self.open = false;
-                        if count == 0 {
-                            log::info!("captions: placed none · nothing was said in the clip");
-                            studio.notify(&t("captions.nothingSaidClip"), true);
-                        } else {
-                            log::info!(
-                                "captions: placed {count} captions from {:.2} s",
-                                subject.start
-                            );
-                            let _told = crate::studio::Asked::told();
-                            studio.apply(Command::Batch {
-                                commands: font.into_iter().chain(commands).collect(),
-                            });
-                            studio.notify(&tf("captions.addedCaptions", &[&count]), false);
+                        self.gathered.push(Gathered {
+                            rank: subject.rank,
+                            span: subject.span,
+                            look: subject.look,
+                            lines,
+                        });
+                        if !self.next_in_queue(studio) {
+                            self.place_gathered(studio);
                         }
                     }
                     // Asked for: the sheet is already on its way down.
-                    Err(error) if error.contains("cancel") => self.open = false,
+                    Err(error) if error.contains("cancel") => {
+                        self.queue.clear();
+                        self.gathered.clear();
+                        self.open = false;
+                    }
                     // Closed while it ran: the panel is not there to say
                     // it, so the notice does, and the panel too next time.
+                    // What the run's earlier clips heard is kept.
                     Err(error) => {
+                        self.queue.clear();
+                        if !self.gathered.is_empty() {
+                            self.place_gathered(studio);
+                        }
                         if !self.open {
                             studio.notify(&error, true);
                         }
@@ -548,49 +579,171 @@ impl CaptionsPane {
         studio.captions_jump += 1;
     }
 
-    /// One press, captions: what the tray's "Auto captions" does. The clip
-    /// is the selected one when it has sound, else the longest clip with
-    /// sound - the voice of a talking-head cut, rather than whichever
-    /// sound happens to start first. The language is the one picked in the
-    /// sheet before, else Chinese under a Chinese interface - Simplified
-    /// under 简体中文, Traditional under 繁體中文 (whisper is then prompted,
-    /// and its words put, in those characters; see concat_speech::hans),
-    /// else whisper's to hear. Lines are cut as the
+    /// One press, captions: what the tray's "Auto captions" does. The
+    /// selected clip when it has sound - the person's own pick, even a song;
+    /// else every clip on the timeline that may be speaking, one after
+    /// another in timeline order, each clip's captions put at its own place
+    /// on the timeline. What the timeline already says is music - beats
+    /// found in it, its voice taken out, a name like "bgm", a long quiet
+    /// bed under the voice - is left out, and so is what cannot be heard
+    /// (muted, at zero, on a muted lane); see [`hearing`] and
+    /// [`auto_subjects`]. The transcriber listens for speech before it
+    /// transcribes, so a clip of music alone that slips through still adds
+    /// nothing; where two clips caption the same moment, the likelier
+    /// voice's words are kept. A second press over the same clips replaces
+    /// the captions the first one placed instead of adding a second set.
+    /// The language is the one picked in the sheet before, else Chinese
+    /// under a Chinese interface - Simplified under 简体中文, Traditional
+    /// under 繁體中文 (whisper is then prompted, and its words put, in those
+    /// characters; see concat_speech::hans), else whisper's to hear. Lines
+    /// are cut as the
     /// sheet's saved choice says, by the frame unless changed, and end
     /// without a comma or full stop unless that was turned off. With no
-    /// transcriber installed, or nothing with sound on the timeline, the
-    /// panel opens on why.
+    /// transcriber installed, or nothing to hear on the timeline, the panel
+    /// opens on why.
     fn auto_caption(&mut self, studio: &mut Studio) {
-        let candidates: Vec<(String, f64)> = studio
-            .timeline()
-            .clips
-            .iter()
-            .filter(|clip| studio.clip_has_sound(clip))
-            .map(|clip| (clip.id.clone(), clip.duration))
-            .collect();
+        let heard: Vec<Heard> = {
+            let timeline = studio.timeline();
+            let project = studio.project();
+            timeline
+                .clips
+                .iter()
+                .filter(|clip| studio.clip_has_sound(clip))
+                .map(|clip| Heard {
+                    id: clip.id.clone(),
+                    start: clip.start,
+                    duration: clip.duration,
+                    volume: clip.volume,
+                    bed: clip.kind == ClipKind::Audio && clip.detached_from.is_none(),
+                    hearing: hearing(
+                        clip,
+                        project.media_by_id(&clip.media_id),
+                        timeline
+                            .track(&clip.track_id)
+                            .is_some_and(|track| track.muted),
+                    ),
+                })
+                .collect()
+        };
         let selected = studio.sole_selection();
-        let Some(clip) = auto_subject(selected.as_deref(), &candidates) else {
+        let subjects = auto_subjects(selected.as_deref(), &heard);
+        let Some((first, _)) = subjects.first().cloned() else {
             self.open_on(studio, None, false);
-            self.message = t("captions.autoNothingWithSound");
+            self.message = if heard.is_empty() {
+                t("captions.autoNothingWithSound")
+            } else {
+                t("captions.autoOnlyMusic")
+            };
             studio.notify(&self.message, true);
             self.show_in_library(studio);
             return;
         };
-        self.open_on(studio, Some(clip), true);
+        self.open_on(studio, Some(first), true);
         // `open_on` kept the sheet's remembered pick when it is still one
         // the list offers.
         self.language = auto_language(&i18n::current(), self.language.as_deref());
         log::info!(
-            "captions: auto · language {}",
-            self.language.as_deref().unwrap_or("heard")
+            "captions: auto · language {} · {} of {} clips with sound",
+            self.language.as_deref().unwrap_or("heard"),
+            subjects.len(),
+            heard.len(),
         );
-        self.run_sound(studio);
-        if self.running {
+        self.queue = subjects;
+        if self.next_in_queue(studio) {
             studio.notify(&t("captions.autoStarted"), false);
         } else if !self.message.is_empty() {
             studio.notify(&self.message, true);
         }
         self.show_in_library(studio);
+    }
+
+    /// Starts the run's next clip, passing over one gone from the timeline
+    /// or without a file; false when none is left to start.
+    fn next_in_queue(&mut self, studio: &mut Studio) -> bool {
+        while !self.queue.is_empty() {
+            let (id, rank) = self.queue.remove(0);
+            if let Some(clip) = studio.clip(&id).cloned() {
+                self.transcribe(studio, clip, rank);
+                if self.running {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    /// The run's captions onto the timeline as one batch: one undo step,
+    /// taking with it the captions the last run placed over the same
+    /// clips, so pressing again replaces rather than stacks.
+    fn place_gathered(&mut self, studio: &mut Studio) {
+        let gathered = std::mem::take(&mut self.gathered);
+        self.open = false;
+        let Some(look) = gathered.first().map(|clip| clip.look) else {
+            return;
+        };
+        let spans: Vec<(f64, f64)> = gathered.iter().map(|clip| clip.span).collect();
+        let from = spans
+            .iter()
+            .map(|span| span.0)
+            .fold(f64::INFINITY, f64::min);
+        let lines = merge_lines(gathered);
+        if lines.is_empty() {
+            log::info!("captions: placed none · nothing was said in the clip");
+            studio.notify(&t("captions.nothingSaidClip"), true);
+            return;
+        }
+        let timeline = studio.timeline();
+        let timeline_id = timeline.id.clone();
+        let earlier: Vec<(String, f64)> = match &self.placed {
+            Some((id, placed)) if *id == timeline_id => placed
+                .iter()
+                .filter_map(|id| timeline.clip(id))
+                .filter(|clip| clip.kind == ClipKind::Text)
+                .map(|clip| (clip.id.clone(), clip.start))
+                .collect(),
+            _ => Vec::new(),
+        };
+        let stale = replaced(&earlier, &spans);
+        let before: HashSet<String> = timeline.clips.iter().map(|clip| clip.id.clone()).collect();
+        let (base, font) = caption_base(studio);
+        let count = lines.len();
+        let remove = (!stale.is_empty()).then(|| Command::RemoveClips {
+            clip_ids: stale.clone(),
+            ripple: false,
+        });
+        let commands: Vec<Command> = remove
+            .into_iter()
+            .chain(font)
+            .chain(lines.into_iter().map(|line| {
+                caption_clip(line.text, line.start, line.duration, look, base.as_ref())
+            }))
+            .collect();
+        log::info!(
+            "captions: placed {count} captions from {from:.2} s over {} clips, replacing {}",
+            spans.len(),
+            stale.len()
+        );
+        let _told = crate::studio::Asked::told();
+        studio.apply(Command::Batch { commands });
+        let mut placed: Vec<String> = earlier
+            .into_iter()
+            .map(|(id, _)| id)
+            .filter(|id| !stale.contains(id))
+            .collect();
+        placed.extend(
+            studio
+                .timeline()
+                .clips
+                .iter()
+                .filter(|clip| clip.kind == ClipKind::Text && !before.contains(&clip.id))
+                .map(|clip| clip.id.clone()),
+        );
+        self.placed = Some((timeline_id, placed));
+        if stale.is_empty() {
+            studio.notify(&tf("captions.addedCaptions", &[&count]), false);
+        } else {
+            studio.notify(&tf("captions.replacedCaptions", &[&count]), false);
+        }
     }
 
     fn open_on(&mut self, studio: &Studio, clip: Option<String>, voice: bool) {
@@ -619,6 +772,7 @@ impl CaptionsPane {
             placement: 0,
             size: 1,
             timings: std::mem::take(&mut self.timings),
+            placed: self.placed.take(),
             shown: self.shown,
             ..CaptionsPane::default()
         };
@@ -690,6 +844,16 @@ impl CaptionsPane {
             self.message = t("captions.clipNoLongerTimeline");
             return;
         };
+        self.queue.clear();
+        self.gathered.clear();
+        self.transcribe(studio, clip, 0);
+    }
+
+    /// One clip through the transcriber on a worker; `rank` its place
+    /// among the run's clips. The sheet's list shows it while it runs.
+    fn transcribe(&mut self, studio: &mut Studio, clip: Clip, rank: usize) {
+        self.clip = Some(clip.id.clone());
+        self.chosen_with = studio.sole_selection();
         let Some(media) = studio.project().media_by_id(&clip.media_id).cloned() else {
             self.message = t("captions.clipHasNoFile");
             return;
@@ -743,6 +907,8 @@ impl CaptionsPane {
             windows,
             rules: line_rules(studio),
             script: (!script.is_empty()).then(|| script.to_owned()),
+            rank,
+            span: (clip.start, clip.start + clip.duration),
         });
         self.running = true;
         self.message.clear();
@@ -1168,24 +1334,6 @@ struct Source {
     label: String,
 }
 
-/// The clip "Auto captions" transcribes, of `candidates` (each clip with
-/// sound, and how long it runs): the selected one when it is among them,
-/// else the longest, the first of equals. None when nothing has sound.
-fn auto_subject(selected: Option<&str>, candidates: &[(String, f64)]) -> Option<String> {
-    if let Some(selected) = selected
-        && candidates.iter().any(|(id, _)| id == selected)
-    {
-        return Some(selected.to_owned());
-    }
-    candidates
-        .iter()
-        .fold(None::<&(String, f64)>, |best, candidate| match best {
-            Some(best) if best.1 >= candidate.1 => Some(best),
-            _ => Some(candidate),
-        })
-        .map(|(id, _)| id.clone())
-}
-
 /// The language "Auto captions" asks for when the sheet has none picked:
 /// Simplified Chinese under a Simplified Chinese interface, Traditional
 /// under a Traditional one (繁體中文, `zh-TW`), else none - whisper's to
@@ -1197,6 +1345,228 @@ fn auto_language(interface: &str, saved: Option<&str>) -> Option<String> {
         None if matches!(interface, "zh-TW" | "zh-Hant" | "zh-HK") => Some("zh-Hant".to_owned()),
         None => None,
     }
+}
+
+/// What a clip's sound is, as far as the timeline can tell without
+/// listening. In rank order: a voice before a clip that may be one.
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
+enum Hearing {
+    /// Speech, by what was done to it or where it came from.
+    Voice,
+    /// Nothing says either way: a camera's sound, a plain audio file.
+    Plain,
+    /// Music, by what was done to it or what it is called.
+    Music,
+    /// Not heard in the mix at all.
+    Silent,
+}
+
+/// A clip with sound as [`auto_subjects`] weighs it.
+#[derive(Clone, Debug)]
+struct Heard {
+    id: String,
+    start: f64,
+    duration: f64,
+    volume: f64,
+    /// An audio file of its own - not a video, nor sound detached from
+    /// one - so possibly a music bed laid under the cut.
+    bed: bool,
+    hearing: Hearing,
+}
+
+impl Heard {
+    fn overlap(&self, other: &Heard) -> f64 {
+        overlap(
+            (self.start, self.start + self.duration),
+            (other.start, other.start + other.duration),
+        )
+    }
+}
+
+/// Seconds two spans share.
+fn overlap(a: (f64, f64), b: (f64, f64)) -> f64 {
+    (a.1.min(b.1) - a.0.max(b.0)).max(0.0)
+}
+
+/// What a clip's sound is, from what the project already knows about it:
+/// silent when muted, at zero or on a muted lane; music when beats were
+/// found in it, when its voice was taken out or set apart as singing, or
+/// when it or its file is called music ("bgm", "配乐"); a voice when its
+/// speech was set apart, when the speech sheet read it aloud, or when it is
+/// called one ("voiceover", "旁白"); plain otherwise.
+fn hearing(clip: &Clip, media: Option<&MediaItem>, track_muted: bool) -> Hearing {
+    if track_muted || clip.muted == Some(true) || clip.volume <= 0.0 {
+        return Hearing::Silent;
+    }
+    if let Some(mix) = clip.voice {
+        return match mix {
+            mix if mix.voice <= 0.0 && mix.background <= 0.0 => Hearing::Silent,
+            mix if mix.voice <= 0.0 || mix.kind == VoiceKind::Vocals => Hearing::Music,
+            _ => Hearing::Voice,
+        };
+    }
+    if !clip.beats.is_empty() {
+        return Hearing::Music;
+    }
+    if media.is_some_and(|media| media.origin == Some(MediaOrigin::Speech)) {
+        return Hearing::Voice;
+    }
+    let names = [
+        clip.name.as_str(),
+        media.map_or("", |media| media.name.as_str()),
+    ];
+    names
+        .iter()
+        .find_map(|name| name_hint(name))
+        .unwrap_or(Hearing::Plain)
+}
+
+/// What a name says a sound is, when it says: a voice's words before
+/// music's, so "music_interview" is someone talking.
+fn name_hint(name: &str) -> Option<Hearing> {
+    const VOICE_WORDS: [&str; 11] = [
+        "voice",
+        "voiceover",
+        "vo",
+        "vox",
+        "narration",
+        "narrator",
+        "dialog",
+        "dialogue",
+        "interview",
+        "podcast",
+        "speech",
+    ];
+    const VOICE_CJK: [&str; 11] = [
+        "旁白", "配音", "解说", "解說", "人声", "人聲", "口播", "录音", "錄音", "对白", "對白",
+    ];
+    const MUSIC_WORDS: [&str; 8] = [
+        "bgm",
+        "music",
+        "song",
+        "instrumental",
+        "soundtrack",
+        "ost",
+        "beat",
+        "beats",
+    ];
+    const MUSIC_CJK: [&str; 7] = ["配乐", "配樂", "音乐", "音樂", "伴奏", "背景乐", "背景樂"];
+    let lower = name.to_lowercase();
+    // A word whole, or with a number after it: "bgm2", "vo01".
+    let said = |words: &[&str]| {
+        lower
+            .split(|c: char| !c.is_ascii_alphanumeric())
+            .any(|token| {
+                words.iter().any(|word| {
+                    token
+                        .strip_prefix(word)
+                        .is_some_and(|rest| rest.chars().all(|c| c.is_ascii_digit()))
+                })
+            })
+    };
+    if said(&VOICE_WORDS) || VOICE_CJK.iter().any(|word| lower.contains(word)) {
+        Some(Hearing::Voice)
+    } else if said(&MUSIC_WORDS) || MUSIC_CJK.iter().any(|word| lower.contains(word)) {
+        Some(Hearing::Music)
+    } else {
+        None
+    }
+}
+
+/// A plain audio file laid under the cut as music: longer than a clip it
+/// runs under, covering at least half of it, and either under a voice or
+/// quieter than what it is under - background music turned down beneath
+/// the talking. A voiceover over quiet pictures is not quieter than them,
+/// and stays.
+fn is_bed(clip: &Heard, others: &[&Heard]) -> bool {
+    clip.bed
+        && clip.hearing == Hearing::Plain
+        && others.iter().any(|other| {
+            other.id != clip.id
+                && clip.duration > other.duration
+                && clip.overlap(other) >= 0.5 * other.duration
+                && (other.hearing == Hearing::Voice || clip.volume < other.volume)
+        })
+}
+
+/// The clips "Auto captions" transcribes, in timeline order, each with its
+/// rank - 0 the likeliest voice - for where two caption the same moment.
+/// The selected clip alone when it has sound to hear. Else every clip that
+/// may be speaking: voices and plain sound, but not music, a music bed
+/// (see [`is_bed`]) or what is silent. Ranked voices first, then the
+/// louder, then the longer. Empty when nothing is left.
+fn auto_subjects(selected: Option<&str>, heard: &[Heard]) -> Vec<(String, usize)> {
+    if let Some(clip) = selected.and_then(|id| {
+        heard
+            .iter()
+            .find(|clip| clip.id == id && clip.hearing != Hearing::Silent)
+    }) {
+        return vec![(clip.id.clone(), 0)];
+    }
+    let live: Vec<&Heard> = heard
+        .iter()
+        .filter(|clip| matches!(clip.hearing, Hearing::Voice | Hearing::Plain))
+        .collect();
+    let mut chosen: Vec<&Heard> = live
+        .iter()
+        .copied()
+        .filter(|clip| !is_bed(clip, &live))
+        .collect();
+    let mut ranked = chosen.clone();
+    ranked.sort_by(|a, b| {
+        a.hearing
+            .cmp(&b.hearing)
+            .then(b.volume.total_cmp(&a.volume))
+            .then(b.duration.total_cmp(&a.duration))
+            .then(a.start.total_cmp(&b.start))
+    });
+    chosen.sort_by(|a, b| a.start.total_cmp(&b.start).then_with(|| a.id.cmp(&b.id)));
+    chosen
+        .iter()
+        .map(|clip| {
+            let rank = ranked.iter().position(|other| other.id == clip.id);
+            (clip.id.clone(), rank.unwrap_or(0))
+        })
+        .collect()
+}
+
+/// A run's captions as one list in timeline order. Where two clips'
+/// captions take the same moment - the same words from two microphones,
+/// or a voice and the song under it - more than half of the shorter, the
+/// better-ranked clip's are kept.
+fn merge_lines(mut gathered: Vec<Gathered>) -> Vec<Placed> {
+    gathered.sort_by_key(|clip| clip.rank);
+    let mut kept: Vec<(usize, Placed)> = Vec::new();
+    for (index, clip) in gathered.into_iter().enumerate() {
+        for line in clip.lines {
+            let span = (line.start, line.start + line.duration);
+            let clash = kept.iter().any(|(from, other)| {
+                *from != index
+                    && overlap(span, (other.start, other.start + other.duration))
+                        > 0.5 * line.duration.min(other.duration)
+            });
+            if !clash {
+                kept.push((index, line));
+            }
+        }
+    }
+    let mut lines: Vec<Placed> = kept.into_iter().map(|(_, line)| line).collect();
+    lines.sort_by(|a, b| a.start.total_cmp(&b.start));
+    lines
+}
+
+/// Of the captions an earlier run placed (each by id and where it starts),
+/// those a new run over `spans` replaces: the ones that start inside them.
+fn replaced(earlier: &[(String, f64)], spans: &[(f64, f64)]) -> Vec<String> {
+    earlier
+        .iter()
+        .filter(|(_, start)| {
+            spans
+                .iter()
+                .any(|(from, to)| *start >= *from - 1e-6 && *start < *to)
+        })
+        .map(|(id, _)| id.clone())
+        .collect()
 }
 
 /// The clips on the current timeline that have sound, in the order they
@@ -1503,22 +1873,208 @@ mod tests {
         assert_eq!(follow(None, None, Some("gone")), None);
     }
 
-    /// "Auto captions" takes the selected clip when it has sound, else the
-    /// longest with sound, the first of equal lengths; none without sound.
+    /// A clip with sound as auto captions weighs it.
+    fn heard(id: &str, start: f64, duration: f64, hearing: super::Hearing) -> super::Heard {
+        super::Heard {
+            id: id.to_owned(),
+            start,
+            duration,
+            volume: 1.0,
+            bed: false,
+            hearing,
+        }
+    }
+
+    fn ids(subjects: &[(String, usize)]) -> Vec<&str> {
+        subjects.iter().map(|(id, _)| id.as_str()).collect()
+    }
+
+    /// "Auto captions" takes the selected clip when it has sound - even
+    /// music, the person's own pick - else every clip that may be speaking,
+    /// in timeline order; nothing when nothing can be heard.
     #[test]
-    fn auto_captions_takes_the_selected_voice_else_the_longest() {
-        let clips = |list: &[(&str, f64)]| -> Vec<(String, f64)> {
-            list.iter().map(|(id, d)| ((*id).to_owned(), *d)).collect()
+    fn auto_captions_takes_the_selected_voice_else_every_voice_in_order() {
+        use super::Hearing::{Music, Plain, Silent, Voice};
+        let clips = [
+            heard("c", 40.0, 12.0, Plain),
+            heard("a", 0.0, 4.0, Voice),
+            heard("b", 10.0, 30.0, Plain),
+            heard("m", 0.0, 90.0, Music),
+            heard("s", 60.0, 9.0, Silent),
+        ];
+        let all = super::auto_subjects(None, &clips);
+        assert_eq!(ids(&all), ["a", "b", "c"]);
+        // Voices rank first, then the longer.
+        let rank = |id: &str| all.iter().find(|(of, _)| of == id).unwrap().1;
+        assert_eq!((rank("a"), rank("b"), rank("c")), (0, 1, 2));
+        assert_eq!(ids(&super::auto_subjects(Some("c"), &clips)), ["c"]);
+        assert_eq!(ids(&super::auto_subjects(Some("m"), &clips)), ["m"]);
+        // A title selected, or a silent clip, is passed over.
+        assert_eq!(
+            ids(&super::auto_subjects(Some("t"), &clips)),
+            ["a", "b", "c"]
+        );
+        assert_eq!(
+            ids(&super::auto_subjects(Some("s"), &clips)),
+            ["a", "b", "c"]
+        );
+        assert!(super::auto_subjects(None, &[]).is_empty());
+        let music_only = [heard("m", 0.0, 90.0, Music), heard("s", 0.0, 9.0, Silent)];
+        assert!(super::auto_subjects(None, &music_only).is_empty());
+    }
+
+    /// Background music longer than the voice it runs under is not
+    /// captioned - turned down under a talking head, or under anything
+    /// called a voice - while a voiceover over quiet pictures is.
+    #[test]
+    fn auto_captions_leaves_out_a_music_bed_longer_than_the_voice() {
+        use super::Hearing::{Plain, Voice};
+        let bed = |volume: f64| super::Heard {
+            volume,
+            bed: true,
+            ..heard("bgm", 0.0, 120.0, Plain)
         };
-        let three = clips(&[("a", 4.0), ("b", 30.0), ("c", 12.0)]);
-        assert_eq!(super::auto_subject(Some("c"), &three).as_deref(), Some("c"));
-        // A title selected - not among the sounding clips - is passed over.
-        assert_eq!(super::auto_subject(Some("t"), &three).as_deref(), Some("b"));
-        assert_eq!(super::auto_subject(None, &three).as_deref(), Some("b"));
-        let tied = clips(&[("x", 10.0), ("y", 10.0)]);
-        assert_eq!(super::auto_subject(None, &tied).as_deref(), Some("x"));
-        assert_eq!(super::auto_subject(Some("a"), &[]), None);
-        assert_eq!(super::auto_subject(None, &[]), None);
+        // A talking head, 20 s, with an unnamed song at a third under it.
+        let talking = [heard("v", 5.0, 20.0, Plain), bed(0.3)];
+        assert_eq!(ids(&super::auto_subjects(None, &talking)), ["v"]);
+        // At full level, under a clip known to be speech.
+        let named = [heard("v", 5.0, 20.0, Voice), bed(1.0)];
+        assert_eq!(ids(&super::auto_subjects(None, &named)), ["v"]);
+        // Two plain audio files, the longer one quieter: the music.
+        let two = [
+            super::Heard {
+                bed: true,
+                ..heard("narration", 0.0, 50.0, Plain)
+            },
+            bed(0.5),
+        ];
+        assert_eq!(ids(&super::auto_subjects(None, &two)), ["narration"]);
+        // A voiceover at full level over quieter b-roll is the voice: kept.
+        let voiceover = super::Heard {
+            bed: true,
+            ..heard("vo", 0.0, 60.0, Plain)
+        };
+        let broll = super::Heard {
+            volume: 0.4,
+            ..heard("broll", 10.0, 5.0, Plain)
+        };
+        assert_eq!(
+            ids(&super::auto_subjects(None, &[voiceover, broll])),
+            ["vo", "broll"]
+        );
+    }
+
+    /// What the timeline knows of a clip's sound says whether it is a
+    /// voice, music or nothing heard.
+    #[test]
+    fn a_clip_is_heard_as_voice_music_or_silence_by_what_the_project_knows() {
+        use super::Hearing::{Music, Plain, Silent, Voice};
+        use concat_project::model::{Clip, ClipKind, MediaItem, MediaOrigin, VoiceKind, VoiceMix};
+        let audio = |name: &str| Clip::blank("c1", "t1", ClipKind::Audio, name, 0.0, 10.0);
+        let file = |name: &str| MediaItem {
+            name: name.to_owned(),
+            ..MediaItem::default()
+        };
+        let heard = |clip: &Clip, media: &MediaItem| super::hearing(clip, Some(media), false);
+        let plain = audio("take 3");
+        assert_eq!(heard(&plain, &file("take 3.m4a")), Plain);
+        assert_eq!(super::hearing(&plain, None, true), Silent);
+        assert_eq!(
+            heard(
+                &Clip {
+                    volume: 0.0,
+                    ..plain.clone()
+                },
+                &file("a")
+            ),
+            Silent
+        );
+        assert_eq!(
+            heard(
+                &Clip {
+                    muted: Some(true),
+                    ..plain.clone()
+                },
+                &file("a")
+            ),
+            Silent
+        );
+        assert_eq!(heard(&plain, &file("BGM_02.mp3")), Music);
+        assert_eq!(heard(&plain, &file("summer-song.wav")), Music);
+        assert_eq!(heard(&plain, &file("背景音乐.mp3")), Music);
+        assert_eq!(heard(&plain, &file("vo01.wav")), Voice);
+        assert_eq!(heard(&plain, &file("旁白 第二段.m4a")), Voice);
+        assert_eq!(heard(&plain, &file("music_interview.mp3")), Voice);
+        // Not a word of its own: "Beethoven", "ghost", "volume test".
+        assert_eq!(heard(&plain, &file("Beethoven ghost volume.wav")), Plain);
+        let beats = Clip {
+            beats: vec![0.5, 1.0],
+            ..plain.clone()
+        };
+        assert_eq!(heard(&beats, &file("take 3")), Music);
+        let read_aloud = MediaItem {
+            origin: Some(MediaOrigin::Speech),
+            ..file("tts.wav")
+        };
+        assert_eq!(heard(&plain, &read_aloud), Voice);
+        let mix = |voice: f64, background: f64, kind: VoiceKind| Clip {
+            voice: Some(VoiceMix {
+                voice,
+                background,
+                kind,
+            }),
+            ..plain.clone()
+        };
+        assert_eq!(
+            heard(&mix(1.0, 0.2, VoiceKind::Speech), &file("bgm")),
+            Voice
+        );
+        assert_eq!(heard(&mix(0.0, 1.0, VoiceKind::Speech), &file("a")), Music);
+        assert_eq!(heard(&mix(1.0, 0.0, VoiceKind::Vocals), &file("a")), Music);
+        assert_eq!(heard(&mix(0.0, 0.0, VoiceKind::Speech), &file("a")), Silent);
+    }
+
+    /// Where two clips caption the same moment the better-ranked clip's
+    /// words are kept; the rest of both are, in timeline order.
+    #[test]
+    fn overlapping_captions_from_two_clips_keep_the_likelier_voice() {
+        let line = |text: &str, start: f64, duration: f64| super::Placed {
+            text: text.to_owned(),
+            start,
+            duration,
+        };
+        let clip = |rank: usize, lines: Vec<super::Placed>| super::Gathered {
+            rank,
+            span: (0.0, 100.0),
+            look: (0.35, 0.05),
+            lines,
+        };
+        let song = clip(1, vec![line("la la", 1.0, 2.0), line("na na", 40.0, 2.0)]);
+        let voice = clip(0, vec![line("hello", 1.5, 2.0), line("bye", 10.0, 1.0)]);
+        let merged = super::merge_lines(vec![song, voice]);
+        let texts: Vec<&str> = merged.iter().map(|line| line.text.as_str()).collect();
+        assert_eq!(texts, ["hello", "bye", "na na"]);
+        // One clip's own lines never push each other out.
+        let tight = clip(0, vec![line("a", 0.0, 2.0), line("b", 0.5, 2.0)]);
+        assert_eq!(super::merge_lines(vec![tight]).len(), 2);
+    }
+
+    /// Pressing again replaces the captions the last press placed over the
+    /// same clips, and leaves those it placed over other clips.
+    #[test]
+    fn a_second_press_replaces_the_first_set_instead_of_stacking() {
+        let earlier = [
+            ("c1".to_owned(), 0.0),
+            ("c2".to_owned(), 4.5),
+            ("c3".to_owned(), 30.0),
+        ];
+        assert_eq!(super::replaced(&earlier, &[(0.0, 10.0)]), ["c1", "c2"]);
+        assert_eq!(
+            super::replaced(&earlier, &[(0.0, 10.0), (25.0, 40.0)]),
+            ["c1", "c2", "c3"]
+        );
+        assert!(super::replaced(&earlier, &[(50.0, 60.0)]).is_empty());
+        assert!(super::replaced(&[], &[(0.0, 10.0)]).is_empty());
     }
 
     /// The language asked for: the sheet's pick, else Simplified Chinese
