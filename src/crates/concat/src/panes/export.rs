@@ -15,7 +15,7 @@
 
 use concat_host::export::{self, ExportSpec};
 use concat_media::ColorRange;
-use concat_media::platform::{Advice, Orientation, Platform};
+use concat_media::platform::{Advice, Orientation, Platform, Shape};
 
 use crate::format::{bytes, eta};
 use crate::host::{on_ui, spawn};
@@ -341,8 +341,14 @@ impl ExportPane {
             .advise(width, height, self.deep(studio))
             .into_iter()
             .map(|advice| match advice {
-                Advice::Orientation(Orientation::Upright) => tf("export.adviceUpright", &[&name]),
-                Advice::Orientation(_) => tf("export.adviceWide", &[&name]),
+                Advice::Orientation { wanted, edit } => match (wanted, edit) {
+                    (Orientation::Upright, Shape::Square) => {
+                        tf("export.adviceUprightSquare", &[&name])
+                    }
+                    (Orientation::Upright, _) => tf("export.adviceUpright", &[&name]),
+                    (_, Shape::Square) => tf("export.adviceWideSquare", &[&name]),
+                    _ => tf("export.adviceWide", &[&name]),
+                },
                 Advice::TooSmall(lines) => tf(
                     "export.adviceTooSmall",
                     &[&name, &lines, &width.min(height)],

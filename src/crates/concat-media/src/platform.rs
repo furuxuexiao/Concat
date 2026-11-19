@@ -44,6 +44,38 @@ pub enum Orientation {
     Either,
 }
 
+/// Which way round an edit's frame is.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Shape {
+    /// Taller than wide.
+    Upright,
+    /// Wider than tall.
+    Wide,
+    /// As wide as tall: 1:1.
+    Square,
+}
+
+impl Shape {
+    /// The shape of a `width` by `height` frame.
+    pub fn of(width: u32, height: u32) -> Shape {
+        match height.cmp(&width) {
+            std::cmp::Ordering::Greater => Shape::Upright,
+            std::cmp::Ordering::Less => Shape::Wide,
+            std::cmp::Ordering::Equal => Shape::Square,
+        }
+    }
+
+    /// Whether a platform that wants `wanted` shows this shape as it is.
+    pub fn fits(self, wanted: Orientation) -> bool {
+        matches!(
+            (wanted, self),
+            (Orientation::Either, _)
+                | (Orientation::Upright, Shape::Upright)
+                | (Orientation::Wide, Shape::Wide)
+        )
+    }
+}
+
 /// A destination the export sheet offers.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Platform {
@@ -62,8 +94,15 @@ pub enum Platform {
 /// Something about the edit a platform would not take as it is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Advice {
-    /// The frame is the other way round from the platform's.
-    Orientation(Orientation),
+    /// The frame is not the way round the platform's is: what the
+    /// platform wants, and what the edit is - the other way round, or
+    /// square.
+    Orientation {
+        /// The way round the platform shows a frame.
+        wanted: Orientation,
+        /// The edit's own shape.
+        edit: Shape,
+    },
     /// Fewer lines than the platform shows well, as the short side.
     TooSmall(u32),
     /// More lines than this preset is for, as the short side: the upload
@@ -180,16 +219,10 @@ impl Platform {
     pub fn advise(self, width: u32, height: u32, deep: bool) -> Vec<Advice> {
         let mut advice = Vec::new();
         let short = width.min(height);
-        let shape = if height > width {
-            Orientation::Upright
-        } else if width > height {
-            Orientation::Wide
-        } else {
-            Orientation::Either
-        };
+        let edit = Shape::of(width, height);
         let wanted = self.orientation();
-        if wanted != Orientation::Either && shape != wanted {
-            advice.push(Advice::Orientation(wanted));
+        if !edit.fits(wanted) {
+            advice.push(Advice::Orientation { wanted, edit });
         }
         if short < self.min_short_side() {
             advice.push(Advice::TooSmall(self.min_short_side()));
@@ -270,7 +303,17 @@ mod tests {
         assert!(Platform::Bilibili.advise(1920, 1080, false).is_empty());
         assert_eq!(
             Platform::Bilibili.advise(1080, 1920, false),
-            vec![Advice::Orientation(Orientation::Wide)]
+            vec![Advice::Orientation {
+                wanted: Orientation::Wide,
+                edit: Shape::Upright
+            }]
+        );
+        assert_eq!(
+            Platform::Bilibili.advise(1080, 1080, false),
+            vec![Advice::Orientation {
+                wanted: Orientation::Wide,
+                edit: Shape::Square
+            }]
         );
         assert_eq!(
             Platform::Bilibili.advise(1280, 720, false),
@@ -293,14 +336,21 @@ mod tests {
         assert!(Platform::Douyin.advise(1080, 1920, false).is_empty());
         assert_eq!(
             Platform::Douyin.advise(1920, 1080, false),
-            vec![Advice::Orientation(Orientation::Upright)]
+            vec![Advice::Orientation {
+                wanted: Orientation::Upright,
+                edit: Shape::Wide
+            }]
         );
         assert!(Platform::Channels.advise(1920, 1080, false).is_empty());
         assert!(Platform::Channels.advise(1080, 1920, false).is_empty());
         assert_eq!(
             Platform::Douyin.advise(1080, 1080, false),
-            vec![Advice::Orientation(Orientation::Upright)]
+            vec![Advice::Orientation {
+                wanted: Orientation::Upright,
+                edit: Shape::Square
+            }]
         );
+        assert!(Platform::Channels.advise(1080, 1080, false).is_empty());
         assert!(Platform::YouTube.advise(1920, 1080, true).is_empty());
     }
 }
