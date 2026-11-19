@@ -44,6 +44,38 @@ pub enum Orientation {
     Either,
 }
 
+/// Which way round an edit's frame is.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Shape {
+    /// Taller than wide.
+    Upright,
+    /// Wider than tall.
+    Wide,
+    /// As wide as tall: 1:1.
+    Square,
+}
+
+impl Shape {
+    /// The shape of a `width` by `height` frame.
+    pub fn of(width: u32, height: u32) -> Shape {
+        match height.cmp(&width) {
+            std::cmp::Ordering::Greater => Shape::Upright,
+            std::cmp::Ordering::Less => Shape::Wide,
+            std::cmp::Ordering::Equal => Shape::Square,
+        }
+    }
+
+    /// Whether a platform that wants `wanted` shows this shape as it is.
+    pub fn fits(self, wanted: Orientation) -> bool {
+        matches!(
+            (wanted, self),
+            (Orientation::Either, _)
+                | (Orientation::Upright, Shape::Upright)
+                | (Orientation::Wide, Shape::Wide)
+        )
+    }
+}
+
 /// A destination the export sheet offers.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Platform {
@@ -62,8 +94,15 @@ pub enum Platform {
 /// Something about the edit a platform would not take as it is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Advice {
-    /// The frame is the other way round from the platform's.
-    Orientation(Orientation),
+    /// The frame is not the way round the platform's is: what the
+    /// platform wants, and what the edit is - the other way round, or
+    /// square.
+    Orientation {
+        /// The way round the platform shows a frame.
+        wanted: Orientation,
+        /// The edit's own shape.
+        edit: Shape,
+    },
     /// Fewer lines than the platform shows well, as the short side.
     TooSmall(u32),
     /// More lines than this preset is for, as the short side: the upload
@@ -104,9 +143,12 @@ impl Platform {
         }
     }
 
-    /// The fewest lines, as the short side, the platform shows well.
+    /// The smallest frame, as the short side, the platform shows well.
+    /// Douyin's own floor is 720p; the 1080p the preset is written for is
+    /// its recommendation, not a requirement.
     pub fn min_short_side(self) -> u32 {
         match self {
+            Platform::Douyin => 720,
             Platform::Bilibili4k => 1600,
             _ => 1080,
         }
@@ -138,13 +180,20 @@ impl Platform {
 
     /// The rate a timeline at `own` frames a second is exported at: its
     /// own, unless that is faster than the platform plays, when it is the
-    /// fastest the platform plays. Never made faster than it was cut.
+    /// fastest exact divisor of its own the platform plays - every second
+    /// frame of a 50 fps cut is 25, of 59.94 is 29.97 - so no frame is
+    /// shown twice and none is dropped unevenly, which a 50 fps cut
+    /// brought down to 30 judders with. Never made faster than it was
+    /// cut; an unknown rate is the platform's fastest.
     pub fn fps_for(self, own: f64) -> f64 {
-        if own.is_finite() && own > 0.0 && own <= self.max_fps() + 0.01 {
-            own
-        } else {
-            self.max_fps()
+        let max = self.max_fps();
+        if !(own.is_finite() && own > 0.0) {
+            return max;
         }
+        // The smallest whole step that brings it under the platform's
+        // fastest, so the fastest of the exact divisors.
+        let step = (own / (max + 0.01)).ceil().max(1.0);
+        own / step
     }
 
     /// The H.264 bitrate the file is written at, in kbps, at `fps`.
@@ -173,16 +222,10 @@ impl Platform {
     pub fn advise(self, width: u32, height: u32, deep: bool) -> Vec<Advice> {
         let mut advice = Vec::new();
         let short = width.min(height);
-        let shape = if height > width {
-            Orientation::Upright
-        } else if width > height {
-            Orientation::Wide
-        } else {
-            Orientation::Either
-        };
+        let edit = Shape::of(width, height);
         let wanted = self.orientation();
-        if wanted != Orientation::Either && shape != wanted {
-            advice.push(Advice::Orientation(wanted));
+        if !edit.fits(wanted) {
+            advice.push(Advice::Orientation { wanted, edit });
         }
         if short < self.min_short_side() {
             advice.push(Advice::TooSmall(self.min_short_side()));
@@ -233,6 +276,26 @@ mod tests {
             30000.0 / 1001.0
         );
         assert_eq!(Platform::Bilibili.fps_for(f64::NAN), 60.0);
+        assert_eq!(Platform::Bilibili.fps_for(0.0), 60.0);
+    }
+
+    /// A rate faster than the platform plays comes down by a whole step:
+    /// every second (or third) frame, never a judder of uneven drops.
+    #[test]
+    fn a_faster_rate_comes_down_to_an_exact_divisor() {
+        let ntsc = |fps: f64| fps * 1000.0 / 1001.0;
+        assert_eq!(Platform::Channels.fps_for(50.0), 25.0);
+        assert_eq!(Platform::Channels.fps_for(ntsc(60.0)), ntsc(30.0));
+        assert_eq!(Platform::Channels.fps_for(60.0), 30.0);
+        assert_eq!(Platform::Channels.fps_for(30.0), 30.0);
+        assert_eq!(Platform::Channels.fps_for(25.0), 25.0);
+        assert_eq!(Platform::Channels.fps_for(ntsc(30.0)), ntsc(30.0));
+        assert_eq!(Platform::Channels.fps_for(48.0), 24.0);
+        assert_eq!(Platform::Channels.fps_for(120.0), 30.0);
+        assert_eq!(Platform::Channels.fps_for(100.0), 25.0);
+        assert_eq!(Platform::Douyin.fps_for(120.0), 60.0);
+        assert_eq!(Platform::Douyin.fps_for(ntsc(120.0)), ntsc(60.0));
+        assert_eq!(Platform::Douyin.fps_for(ntsc(60.0)), ntsc(60.0));
     }
 
     /// A wide 1080p edit is what Bilibili wants; an upright one is told
@@ -243,7 +306,17 @@ mod tests {
         assert!(Platform::Bilibili.advise(1920, 1080, false).is_empty());
         assert_eq!(
             Platform::Bilibili.advise(1080, 1920, false),
-            vec![Advice::Orientation(Orientation::Wide)]
+            vec![Advice::Orientation {
+                wanted: Orientation::Wide,
+                edit: Shape::Upright
+            }]
+        );
+        assert_eq!(
+            Platform::Bilibili.advise(1080, 1080, false),
+            vec![Advice::Orientation {
+                wanted: Orientation::Wide,
+                edit: Shape::Square
+            }]
         );
         assert_eq!(
             Platform::Bilibili.advise(1280, 720, false),
@@ -264,16 +337,28 @@ mod tests {
     #[test]
     fn upright_platforms_say_so() {
         assert!(Platform::Douyin.advise(1080, 1920, false).is_empty());
+        assert!(Platform::Douyin.advise(720, 1280, false).is_empty());
+        assert_eq!(
+            Platform::Douyin.advise(540, 960, false),
+            vec![Advice::TooSmall(720)]
+        );
         assert_eq!(
             Platform::Douyin.advise(1920, 1080, false),
-            vec![Advice::Orientation(Orientation::Upright)]
+            vec![Advice::Orientation {
+                wanted: Orientation::Upright,
+                edit: Shape::Wide
+            }]
         );
         assert!(Platform::Channels.advise(1920, 1080, false).is_empty());
         assert!(Platform::Channels.advise(1080, 1920, false).is_empty());
         assert_eq!(
             Platform::Douyin.advise(1080, 1080, false),
-            vec![Advice::Orientation(Orientation::Upright)]
+            vec![Advice::Orientation {
+                wanted: Orientation::Upright,
+                edit: Shape::Square
+            }]
         );
+        assert!(Platform::Channels.advise(1080, 1080, false).is_empty());
         assert!(Platform::YouTube.advise(1920, 1080, true).is_empty());
     }
 }
