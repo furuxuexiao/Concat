@@ -138,13 +138,20 @@ impl Platform {
 
     /// The rate a timeline at `own` frames a second is exported at: its
     /// own, unless that is faster than the platform plays, when it is the
-    /// fastest the platform plays. Never made faster than it was cut.
+    /// fastest exact divisor of its own the platform plays - every second
+    /// frame of a 50 fps cut is 25, of 59.94 is 29.97 - so no frame is
+    /// shown twice and none is dropped unevenly, which a 50 fps cut
+    /// brought down to 30 judders with. Never made faster than it was
+    /// cut; an unknown rate is the platform's fastest.
     pub fn fps_for(self, own: f64) -> f64 {
-        if own.is_finite() && own > 0.0 && own <= self.max_fps() + 0.01 {
-            own
-        } else {
-            self.max_fps()
+        let max = self.max_fps();
+        if !(own.is_finite() && own > 0.0) {
+            return max;
         }
+        // The smallest whole step that brings it under the platform's
+        // fastest, so the fastest of the exact divisors.
+        let step = (own / (max + 0.01)).ceil().max(1.0);
+        own / step
     }
 
     /// The H.264 bitrate the file is written at, in kbps, at `fps`.
@@ -233,6 +240,26 @@ mod tests {
             30000.0 / 1001.0
         );
         assert_eq!(Platform::Bilibili.fps_for(f64::NAN), 60.0);
+        assert_eq!(Platform::Bilibili.fps_for(0.0), 60.0);
+    }
+
+    /// A rate faster than the platform plays comes down by a whole step:
+    /// every second (or third) frame, never a judder of uneven drops.
+    #[test]
+    fn a_faster_rate_comes_down_to_an_exact_divisor() {
+        let ntsc = |fps: f64| fps * 1000.0 / 1001.0;
+        assert_eq!(Platform::Channels.fps_for(50.0), 25.0);
+        assert_eq!(Platform::Channels.fps_for(ntsc(60.0)), ntsc(30.0));
+        assert_eq!(Platform::Channels.fps_for(60.0), 30.0);
+        assert_eq!(Platform::Channels.fps_for(30.0), 30.0);
+        assert_eq!(Platform::Channels.fps_for(25.0), 25.0);
+        assert_eq!(Platform::Channels.fps_for(ntsc(30.0)), ntsc(30.0));
+        assert_eq!(Platform::Channels.fps_for(48.0), 24.0);
+        assert_eq!(Platform::Channels.fps_for(120.0), 30.0);
+        assert_eq!(Platform::Channels.fps_for(100.0), 25.0);
+        assert_eq!(Platform::Douyin.fps_for(120.0), 60.0);
+        assert_eq!(Platform::Douyin.fps_for(ntsc(120.0)), ntsc(60.0));
+        assert_eq!(Platform::Douyin.fps_for(ntsc(60.0)), ntsc(60.0));
     }
 
     /// A wide 1080p edit is what Bilibili wants; an upright one is told
