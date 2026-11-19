@@ -143,9 +143,12 @@ impl Platform {
         }
     }
 
-    /// The fewest lines, as the short side, the platform shows well.
+    /// The smallest frame, as the short side, the platform shows well.
+    /// Douyin's own floor is 720p; the 1080p the preset is written for is
+    /// its recommendation, not a requirement.
     pub fn min_short_side(self) -> u32 {
         match self {
+            Platform::Douyin => 720,
             Platform::Bilibili4k => 1600,
             _ => 1080,
         }
@@ -334,6 +337,11 @@ mod tests {
     #[test]
     fn upright_platforms_say_so() {
         assert!(Platform::Douyin.advise(1080, 1920, false).is_empty());
+        assert!(Platform::Douyin.advise(720, 1280, false).is_empty());
+        assert_eq!(
+            Platform::Douyin.advise(540, 960, false),
+            vec![Advice::TooSmall(720)]
+        );
         assert_eq!(
             Platform::Douyin.advise(1920, 1080, false),
             vec![Advice::Orientation {
