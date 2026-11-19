@@ -101,6 +101,11 @@ pub struct ExportPane {
     /// before the preset, as after it the sheet is 8-bit SDR whatever the
     /// edit was.
     pub preset_dropped_deep: bool,
+    /// The sheet's own ten-bit and HDR switches, `(ten_bit, sdr)`, as they
+    /// were before the first preset changed them: put back when a platform
+    /// that takes HDR is picked after one that does not, or the preset is
+    /// set back to none. Kept only while a preset is.
+    own_depth: Option<(bool, bool)>,
     pub phase: ExportPhase,
     pub progress: f32,
     pub stage: String,
@@ -133,6 +138,7 @@ impl Default for ExportPane {
             bitrate: 8000,
             preset: None,
             preset_dropped_deep: false,
+            own_depth: None,
             phase: ExportPhase::Idle,
             progress: 0.0,
             stage: String::new(),
@@ -203,7 +209,9 @@ impl ExportPane {
                 match platform {
                     Some(platform) => self.apply_preset(platform, studio),
                     None => {
-                        // Back to the sheet's own recommendation.
+                        // Back to the sheet's own recommendation, and its
+                        // own ten bits and HDR.
+                        self.restore_depth();
                         self.clear_preset();
                         self.custom = false;
                     }
@@ -294,13 +302,43 @@ impl ExportPane {
     fn clear_preset(&mut self) {
         self.preset = None;
         self.preset_dropped_deep = false;
+        self.own_depth = None;
+    }
+
+    /// The sheet's ten-bit and HDR switches back as they were before the
+    /// first preset, if one changed them.
+    fn restore_depth(&mut self) {
+        if let Some((ten_bit, sdr)) = self.own_depth {
+            self.ten_bit = ten_bit;
+            self.sdr = sdr;
+        }
+    }
+
+    /// The ten-bit and HDR part of a preset for `platform`, the file being
+    /// `deep_before` it: the first preset keeps the sheet's own switches;
+    /// a platform that takes 8-bit SDR only turns both off, and says so
+    /// (an earlier preset that did keeps saying so); one that takes HDR
+    /// puts the sheet's own back, so YouTube after Douyin is HDR again.
+    fn preset_depth(&mut self, platform: Platform, deep_before: bool) {
+        let carried = self.preset.is_some() && self.preset_dropped_deep;
+        if self.preset.is_none() {
+            self.own_depth = Some((self.ten_bit, self.sdr));
+        }
+        self.preset_dropped_deep = Self::drops_deep(platform, deep_before, carried);
+        if platform.eight_bit_only() {
+            self.ten_bit = false;
+            self.sdr = true;
+        } else {
+            self.restore_depth();
+        }
     }
 
     /// Sets the sheet to what `platform` takes: H.264 where this device
     /// can write it (otherwise the codec picked stands), the timeline's
     /// own rate unless the platform plays slower (then the fastest exact
     /// divisor of it the platform plays), the platform's bitrate at that
-    /// rate, and 8-bit SDR where it takes nothing else. The frame is the
+    /// rate, and 8-bit SDR where it takes nothing else (the sheet's own
+    /// ten bits and HDR where it does). The frame is the
     /// timeline's, as ever; what the platform would want of it is said
     /// under the picker instead.
     fn apply_preset(&mut self, platform: Platform, studio: &Studio) {
@@ -308,10 +346,10 @@ impl ExportPane {
         // What the file would have been before the preset: an HDR
         // timeline, or a ten-bit one, is announced when the preset makes
         // it 8-bit SDR. A preset applied again (the sheet reopened, or
-        // another platform picked) keeps what the first one turned off.
+        // another 8-bit platform picked) keeps what the first one turned
+        // off; one that takes HDR puts the sheet's own switches back.
         let deep_before = self.deep(studio) || studio.timeline().video.color_space.is_hdr();
-        let carried = self.preset.is_some() && self.preset_dropped_deep;
-        self.preset_dropped_deep = Self::drops_deep(platform, deep_before, carried);
+        self.preset_depth(platform, deep_before);
         if let Some(index) = VideoCodec::ALL
             .iter()
             .position(|codec| *codec == VideoCodec::H264 && codec.encodable())
@@ -320,10 +358,6 @@ impl ExportPane {
         }
         let rates = Self::rates(studio);
         self.rate = Self::preset_rate(platform, &rates);
-        if platform.eight_bit_only() {
-            self.ten_bit = false;
-            self.sdr = true;
-        }
         self.bitrate = platform.kbps(fps_of(self.rate(studio)));
         self.custom = true;
         self.preset = Some(platform);
@@ -959,13 +993,61 @@ mod tests {
 
     /// An 8-bit-only platform says it turned ten bits or HDR off whenever
     /// the file was deep before it, or an earlier preset already turned
-    /// it off; YouTube, which takes HDR, never does.
+    /// it off; YouTube, which takes HDR, turns nothing off.
     #[test]
     fn an_eight_bit_preset_says_it_turned_hdr_off() {
         assert!(ExportPane::drops_deep(Platform::Douyin, true, false));
         assert!(ExportPane::drops_deep(Platform::Bilibili, false, true));
         assert!(!ExportPane::drops_deep(Platform::Channels, false, false));
-        assert!(!ExportPane::drops_deep(Platform::YouTube, true, true));
+        let mut pane = ExportPane {
+            ten_bit: true,
+            ..ExportPane::default()
+        };
+        pane.preset_depth(Platform::YouTube, true);
+        pane.preset = Some(Platform::YouTube);
+        assert!(!pane.preset_dropped_deep);
+        assert!(pane.ten_bit && !pane.sdr, "YouTube keeps ten bits and HDR");
+    }
+
+    /// Douyin turns a deep sheet 8-bit SDR and says so; YouTube picked
+    /// after it puts the sheet's own ten bits and HDR back rather than
+    /// leaving them off without a word, and Bilibili after Douyin keeps
+    /// the note. "None" puts them back too.
+    #[test]
+    fn youtube_after_douyin_puts_hdr_back() {
+        let deep = || ExportPane {
+            ten_bit: true,
+            sdr: false,
+            ..ExportPane::default()
+        };
+        let pick = |pane: &mut ExportPane, platform: Platform, deep_before: bool| {
+            pane.preset_depth(platform, deep_before);
+            pane.preset = Some(platform);
+        };
+        let mut pane = deep();
+        pick(&mut pane, Platform::Douyin, true);
+        assert!(pane.preset_dropped_deep);
+        assert!(!pane.ten_bit && pane.sdr);
+        // After Douyin the sheet is 8-bit SDR, so not deep before YouTube.
+        pick(&mut pane, Platform::YouTube, false);
+        assert!(!pane.sdr, "HDR is on again under YouTube");
+        assert!(pane.ten_bit);
+        assert!(!pane.preset_dropped_deep);
+        // And Douyin again turns it off and says so.
+        pick(&mut pane, Platform::Douyin, true);
+        assert!(pane.preset_dropped_deep && pane.sdr && !pane.ten_bit);
+
+        let mut pane = deep();
+        pick(&mut pane, Platform::Douyin, true);
+        pick(&mut pane, Platform::Bilibili, false);
+        assert!(pane.preset_dropped_deep, "the note carries over");
+
+        let mut pane = deep();
+        pick(&mut pane, Platform::Douyin, true);
+        pane.restore_depth();
+        pane.clear_preset();
+        assert!(pane.ten_bit && !pane.sdr);
+        assert_eq!(pane.own_depth, None);
     }
 
     /// A field changed by hand clears the preset, and with it the note
@@ -980,5 +1062,6 @@ mod tests {
         pane.clear_preset();
         assert_eq!(pane.preset, None);
         assert!(!pane.preset_dropped_deep);
+        assert_eq!(pane.own_depth, None);
     }
 }
