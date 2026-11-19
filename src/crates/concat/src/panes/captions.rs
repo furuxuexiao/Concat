@@ -632,7 +632,7 @@ impl CaptionsPane {
         let subjects = auto_subjects(selected.as_deref(), &heard);
         let Some((first, _)) = subjects.first().cloned() else {
             self.open_on(studio, None, false);
-            self.message = if heard.is_empty() {
+            self.message = if nothing_heard(&heard) {
                 t("captions.autoNothingWithSound")
             } else {
                 t("captions.autoOnlyMusic")
@@ -1547,6 +1547,13 @@ fn auto_subjects(selected: Option<&str>, heard: &[Heard]) -> Vec<(String, usize)
         .collect()
 }
 
+/// Whether "Auto captions", finding nothing to run, found nothing to
+/// hear at all - no clip with sound, or every one muted, at zero or on a
+/// muted lane - which is nothing to caption, not "only music".
+fn nothing_heard(heard: &[Heard]) -> bool {
+    heard.iter().all(|clip| clip.hearing == Hearing::Silent)
+}
+
 /// A run's captions as one list in timeline order. Where two clips'
 /// captions take the same moment - the same words from two microphones,
 /// or a voice and the song under it - more than half of the shorter, the
@@ -1957,6 +1964,12 @@ mod tests {
         assert!(super::auto_subjects(None, &[]).is_empty());
         let music_only = [heard("m", 0.0, 90.0, Music), heard("s", 0.0, 9.0, Silent)];
         assert!(super::auto_subjects(None, &music_only).is_empty());
+        assert!(!super::nothing_heard(&music_only));
+        // Every clip muted: nothing to caption, not "only music".
+        let muted = [heard("a", 0.0, 9.0, Silent), heard("b", 9.0, 9.0, Silent)];
+        assert!(super::auto_subjects(None, &muted).is_empty());
+        assert!(super::nothing_heard(&muted));
+        assert!(super::nothing_heard(&[]));
     }
 
     /// Background music longer than the voice it runs under is not
