@@ -6,17 +6,28 @@ name = "Glitch"
 kind = "transition"
 category = "Glitch"
 order = 8
-description = "Digital tearing and channel splitting rip through the cut."
+description = "The picture breaks into torn bands that jump sideways and flicker between the two shots until the next one holds."
 
 [[param]]
 key = "amount"
 label = "Amount"
+unit = "%"
 min = 0
 max = 100
-default = 70
 step = 1
-unit = "%"
+default = 70
 
 [transition]
-entry = "effect.wgsl"
 fallback = "cross-fade"
+entry = "effect.wgsl"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "故障"
+category = "故障"
+description = "画面碎成撕裂的条带，左右跳动，在两个镜头之间闪烁，直到下一个镜头稳定下来。"
+keywords = ["故障", "撕裂", "信号"]
+
+[i18n.zh-Hans.params.amount]
+label = "强度"

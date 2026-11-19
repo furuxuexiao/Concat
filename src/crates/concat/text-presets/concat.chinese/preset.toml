@@ -1,0 +1,9 @@
+id = "concat.chinese"
+name = "Chinese"
+language = "Chinese"
+order = 32
+
+# Simplified Chinese: what the Text page shows when the interface is in
+# 简体中文.
+[i18n.zh-Hans]
+name = "简体中文"

@@ -11,3 +11,11 @@ description = "Saturated and bright, the water pushed teal."
 [wgsl]
 entry = "effect.wgsl"
 space = "display"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "热带"
+category = "风景"
+description = "饱和明亮，海水推向青绿色。"
+keywords = ["海岛", "夏日"]

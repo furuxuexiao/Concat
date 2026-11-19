@@ -11,3 +11,11 @@ description = "Greens and blues pushed richer, the punch a travel shot wants."
 [wgsl]
 entry = "effect.wgsl"
 space = "display"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "鲜艳风景"
+category = "风景"
+description = "绿色和蓝色更浓郁，旅行镜头需要的冲击力。"
+keywords = ["风光", "鲜艳"]

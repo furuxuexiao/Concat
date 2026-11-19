@@ -11,3 +11,11 @@ description = "Greens pulled toward amber, the picture dipped in fall light."
 [wgsl]
 entry = "effect.wgsl"
 space = "display"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "秋日"
+category = "风景"
+description = "绿色被推向琥珀色，整个画面沐浴在秋天的光线里。"
+keywords = ["秋天", "金黄"]

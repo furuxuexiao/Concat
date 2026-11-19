@@ -11,3 +11,11 @@ description = "Magenta and cyan pushed hard, a saturated retro-synth cast."
 [wgsl]
 entry = "effect.wgsl"
 space = "display"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "蒸汽波"
+category = "氛围"
+description = "强烈的品红与青色，饱和的复古合成器色调。"
+keywords = ["复古", "霓虹"]

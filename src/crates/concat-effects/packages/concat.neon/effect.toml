@@ -31,3 +31,17 @@ unit = "%"
 [wgsl]
 entry = "effect.wgsl"
 space = "display"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "霓虹"
+category = "风格化"
+description = "阴影品红、高光青色，强对比、高饱和，灯光本身也在发光。适合夜晚街道和招牌。"
+keywords = ["赛博", "夜景"]
+
+[i18n.zh-Hans.params.glow]
+label = "光晕"
+
+[i18n.zh-Hans.params.punch]
+label = "力度"

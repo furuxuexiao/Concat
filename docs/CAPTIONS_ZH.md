@@ -5,14 +5,21 @@ How the Captions sheet makes captions that read like CapCut's (剪映's
 
 ## Language (语言)
 
-The choice sits in the sheet under **Transcriber** and is remembered:
+The choice sits in the sheet under *Transcribe this clip's voice* and is
+remembered. Since 0.2.11 the list is upstream's: *Auto-detect*, then every
+language whisper knows, each by its own name. The fork adds Chinese twice
+over - **简体中文** and **繁體中文**, one after the other - since whisper
+writes either:
 
 | Choice | What the transcriber is told |
 |---|---|
-| Detect (自动识别) | Whisper hears the language in the first thirty seconds. Chinese heard is written in Simplified characters, as if 简体中文 had been picked. Under a 繁體中文 interface the sheet starts on 繁體中文 instead. |
-| 简体中文 | Chinese, prompted in Simplified characters with punctuation, so the captions come out in 简体 and punctuated rather than 繁體 and run together. |
-| 繁體中文 | Chinese, prompted in Traditional characters with punctuation. |
-| English | English. An English-only model (`*.en`) is always told English. |
+| Auto-detect (自动检测) | Whisper hears the language over the speech alone (upstream's detection, over up to three stretches of it). Chinese heard is written in Simplified characters, as if 简体中文 had been picked. Under a 繁體中文 interface the request is 繁體中文 instead. |
+| 简体中文 (`zh`) | Chinese, prompted in Simplified characters with punctuation, so the captions come out in 简体 and punctuated rather than 繁體 and run together. |
+| 繁體中文 (`zh-Hant`) | Chinese, prompted in Traditional characters with punctuation. |
+| Any other language | That language, with no prompt. An English-only model (`*.en`) is always told English, and the list then shows English alone. |
+
+A caption that only repeats the prompt (whisper falling back on it over
+music or noise) is dropped.
 
 Pick a **multilingual** model (Tiny, Base or Small "(Multilingual)") in
 Settings › Transcriber for Chinese; the `.en` models only hear English.

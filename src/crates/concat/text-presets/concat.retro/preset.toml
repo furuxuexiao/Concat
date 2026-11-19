@@ -11,3 +11,8 @@ fontSize = 0.1
 color = "#ff6fb5"
 strokeWidth = 0.006
 strokeColor = "#3a0b2a"
+
+# Simplified Chinese: what the Text page shows when the interface is in
+# 简体中文.
+[i18n.zh-Hans]
+name = "复古"

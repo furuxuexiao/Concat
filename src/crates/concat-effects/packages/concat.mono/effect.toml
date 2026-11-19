@@ -39,3 +39,20 @@ unit = "%"
 [wgsl]
 entry = "effect.wgsl"
 space = "display"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "黑白"
+category = "复古"
+description = "透过彩色滤镜拍摄的黑白：红色让天空变暗、皮肤变亮，绿色则相反。可加少许颗粒。"
+keywords = ["单色", "黑白"]
+
+[i18n.zh-Hans.params.colour]
+label = "滤色镜"
+
+[i18n.zh-Hans.params.contrast]
+label = "对比度"
+
+[i18n.zh-Hans.params.grain]
+label = "颗粒"

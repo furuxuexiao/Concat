@@ -1,0 +1,46 @@
+format = 2
+
+[effect]
+id = "concat.walnut"
+name = "Walnut"
+kind = "filter"
+category = "Everyday"
+order = 19
+intensity = "warmth"
+description = "The café look: warm brown through the middle, greens muted to olive, contrast eased. Cosy, and kind to wood and skin alike."
+
+[[param]]
+key = "warmth"
+label = "Warmth"
+min = 0
+max = 100
+default = 60
+step = 1
+unit = "%"
+
+[[param]]
+key = "soften"
+label = "Soften"
+min = 0
+max = 100
+default = 40
+step = 1
+unit = "%"
+
+[wgsl]
+entry = "effect.wgsl"
+space = "display"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "胡桃木"
+category = "日常"
+description = "咖啡馆色调：中间调偏暖棕，绿色压成橄榄色，对比柔和。温馨，对木头和肤色都很友好。"
+keywords = ["咖啡", "暖棕"]
+
+[i18n.zh-Hans.params.warmth]
+label = "暖度"
+
+[i18n.zh-Hans.params.soften]
+label = "柔和"

@@ -6,18 +6,29 @@ name = "Zoom Blur"
 kind = "transition"
 category = "Zoom"
 order = 15
-description = "Rapid inward/outward camera rush with radial zoom blur."
+description = "The camera lunges into the last shot in a rush of streaks, and the next one rushes back out to meet it."
 
 [[param]]
 key = "strength"
 label = "Strength"
+unit = "%"
 min = 0
 max = 100
-default = 70
 step = 1
-unit = "%"
+default = 70
 
 [transition]
-entry = "effect.wgsl"
-xfade = "zoomin"
 fallback = "cross-fade"
+xfade = "zoomin"
+entry = "effect.wgsl"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "缩放模糊"
+category = "缩放"
+description = "镜头带着拖影冲进上一个镜头，下一个镜头再冲出来迎接。"
+keywords = ["拉镜", "冲击"]
+
+[i18n.zh-Hans.params.strength]
+label = "强度"

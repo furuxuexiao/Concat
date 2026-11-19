@@ -17,3 +17,14 @@ step = 1
 
 [ffmpeg]
 chain = "lowpass=f=3200,acrusher=bits={round(bits)}:mode=log:mix=0.8,alimiter=limit=0.9"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "低保真"
+category = "音色"
+description = "老旧小喇叭：没有高音，声音带颗粒感。"
+keywords = ["Lo-fi", "复古"]
+
+[i18n.zh-Hans.params.bits]
+label = "位深"

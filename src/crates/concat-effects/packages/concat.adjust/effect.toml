@@ -217,3 +217,91 @@ entry = "effect.wgsl"
 # At its defaults the panel changes nothing; the card shows it at work.
 [card]
 params = { contrast = 30, saturation = 30 }
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "调节"
+category = "调节"
+description = "每个画面片段都带有的手动调色面板：曝光、影调、白平衡、锐度和暗角。"
+keywords = ["调色", "色温", "曝光"]
+
+[i18n.zh-Hans.params.temperature]
+label = "色温"
+group = "颜色"
+
+[i18n.zh-Hans.params.tint]
+label = "色调"
+group = "颜色"
+
+[i18n.zh-Hans.params.saturation]
+label = "饱和度"
+group = "颜色"
+
+[i18n.zh-Hans.params.exposure]
+label = "曝光"
+group = "明度"
+
+[i18n.zh-Hans.params.brightness]
+label = "亮度"
+group = "明度"
+
+[i18n.zh-Hans.params.contrast]
+label = "对比度"
+group = "明度"
+
+[i18n.zh-Hans.params.highlights]
+label = "高光"
+group = "明度"
+
+[i18n.zh-Hans.params.shadows]
+label = "阴影"
+group = "明度"
+
+[i18n.zh-Hans.params.whites]
+label = "白色"
+group = "明度"
+
+[i18n.zh-Hans.params.blacks]
+label = "黑色"
+group = "明度"
+
+[i18n.zh-Hans.params.sharpen]
+label = "锐化"
+group = "效果"
+
+[i18n.zh-Hans.params.fade]
+label = "褪色"
+group = "效果"
+
+[i18n.zh-Hans.params.vignette]
+label = "暗角"
+group = "效果"
+
+[i18n.zh-Hans.params.lift]
+label = "暗部"
+group = "色轮"
+
+[i18n.zh-Hans.params.gamma]
+label = "中间调"
+group = "色轮"
+
+[i18n.zh-Hans.params.gain]
+label = "高光"
+group = "色轮"
+
+[i18n.zh-Hans.params.luma]
+label = "亮度"
+group = "曲线"
+
+[i18n.zh-Hans.params.red]
+label = "红色"
+group = "曲线"
+
+[i18n.zh-Hans.params.green]
+label = "绿色"
+group = "曲线"
+
+[i18n.zh-Hans.params.blue]
+label = "蓝色"
+group = "曲线"

@@ -6,9 +6,17 @@ name = "Clock Wipe"
 kind = "transition"
 category = "Wipe"
 order = 15
-description = "A hand sweeps around the centre, revealing the incoming shot as it turns."
+description = "A hand sweeps once round the face of the frame from twelve, leaving the next shot behind it."
 
 [transition]
-entry = "effect.wgsl"
-xfade = "radial"
 fallback = "cross-fade"
+xfade = "radial"
+entry = "effect.wgsl"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "时钟擦除"
+category = "擦除"
+description = "像时钟指针一样从十二点扫过一圈，身后留下下一个镜头。"
+keywords = ["钟表", "扇形"]

@@ -6,31 +6,45 @@ name = "Shape Wipe"
 kind = "transition"
 category = "Wipe"
 order = 12
-description = "The incoming shot grows through a shape from the centre of the cut."
+description = "The next shot shows through a circle, heart or star that grows from the centre until it covers the frame."
 
 [[param]]
 key = "shape"
 label = "Shape"
 type = "enum"
-min = 0
-max = 2
-default = 0
 values = [0, 1, 2]
 labels = ["Circle", "Heart", "Star"]
+default = 0
+min = 0
+max = 2
 
 [[param]]
 key = "softness"
 label = "Softness"
+unit = "%"
 min = 0
 max = 100
-default = 15
 step = 1
-unit = "%"
+default = 15
 
 [transition]
-entry = "effect.wgsl"
 fallback = "cross-fade"
+entry = "effect.wgsl"
 
-# The shape has barely opened at the usual point of the cut.
 [card]
 progress = 0.55
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "形状擦除"
+category = "擦除"
+description = "下一个镜头透过从中心扩大的圆形、爱心或星形显现，直到铺满画面。"
+keywords = ["爱心", "星形"]
+
+[i18n.zh-Hans.params.shape]
+label = "形状"
+labels = ["圆形", "爱心", "星形"]
+
+[i18n.zh-Hans.params.softness]
+label = "柔和度"

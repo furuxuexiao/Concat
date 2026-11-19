@@ -11,3 +11,11 @@ description = "A soft, hazy bloom over lifted pastel blacks."
 [wgsl]
 entry = "effect.wgsl"
 space = "display"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "梦幻"
+category = "氛围"
+description = "柔和朦胧的光晕，黑色提亮成粉彩感。"
+keywords = ["朦胧", "柔光"]

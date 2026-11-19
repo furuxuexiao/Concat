@@ -7,9 +7,17 @@ kind = "transition"
 category = "Basic"
 order = 0
 aliases = ["cross-fade"]
-description = "A soft cross-dissolve from one shot into the next."
+description = "One shot melts evenly into the next."
 
 [transition]
-entry = "effect.wgsl"
-xfade = "fade"
 fallback = "cross-fade"
+xfade = "fade"
+entry = "effect.wgsl"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "叠化"
+category = "基础"
+description = "一个镜头均匀地融入下一个镜头。"
+keywords = ["溶解", "淡入淡出", "交叉"]

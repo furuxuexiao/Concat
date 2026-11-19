@@ -4,8 +4,9 @@
 //! Text presets: a title's look, named, that the library's Text page
 //! offers as a card. Presets are data, never code: the built-in ones are
 //! folders under concat's text-presets/, embedded in the binary in the
-//! same form a user's take, and their names are their authors' own and
-//! are not translated. A folder of TOML files beside the app's settings
+//! same form a user's take. A preset's name is its author's own; a file
+//! may carry it in other languages too, `[i18n.<code>]` below, and the
+//! built-ins carry Simplified Chinese. A folder of TOML files beside the app's settings
 //! adds more, and a preset shared between people travels as a folder with
 //! its font inside.
 //!
@@ -21,6 +22,10 @@
 //! order = 10                   # optional: where it sorts; absent sorts last, by name
 //! sample = "Aa"                # optional: what its card draws; see TextPreset::sample
 //!
+//! [i18n.zh-Hans]               # optional: its words in another language,
+//! name = "大红"                # by the interface's locale code: the card's
+//! content = "新标题"           # name, and the words a new title starts with
+//!
 //! [style]                      # any of a title's fields; the rest default
 //! fontFamily = "Big Red"
 //! fontSize = 0.1
@@ -29,6 +34,12 @@
 //! strokeColor = "#000000"
 //! strokeWidth = 0.01
 //! align = "center"
+//!
+//! [[style.runs]]               # optional: some words in a look of their own,
+//! start = 0                    # counted in characters of `content`
+//! end = 3
+//! color = "#ffd400"            # and any of fontWeight, italic, underline,
+//!                              # strikethrough, fontScale, strokeColor
 //! ```
 //!
 //! The font is installed when the preset is first used, not when it is
@@ -38,6 +49,7 @@
 //! a project carries the font's path the way it carries any font added by
 //! hand.
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use concat_host::AppDirs;
@@ -64,6 +76,70 @@ pub struct TextPreset {
     /// Latin and the first two characters of its words for any other
     /// writing, so a Japanese card shows Japanese.
     pub sample: String,
+    /// Its words in other languages, by the interface's locale code: the
+    /// file's `[i18n.<code>]` tables. See [`TextPreset::name_in`].
+    pub words: BTreeMap<String, PresetWords>,
+}
+
+/// A preset's `[i18n.<code>]` table: what the Text page calls it, and what
+/// a title placed with it says, when the interface is in that language.
+/// Anything left out reads as the file's own.
+#[derive(Deserialize, Clone, Default, Debug, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct PresetWords {
+    /// The card's name.
+    #[serde(default)]
+    pub name: Option<String>,
+    /// The words a new title starts with, for a preset whose own are a
+    /// placeholder ("New title") rather than a sample of its face.
+    #[serde(default)]
+    pub content: Option<String>,
+}
+
+impl TextPreset {
+    fn words_in(&self, language: &str) -> Option<&PresetWords> {
+        self.words.get(language).or_else(|| {
+            self.words
+                .iter()
+                .find(|(code, _)| code.eq_ignore_ascii_case(language))
+                .map(|(_, words)| words)
+        })
+    }
+
+    /// The card's name in `language`, a locale code, else the file's own.
+    pub fn name_in(&self, language: &str) -> &str {
+        self.words_in(language)
+            .and_then(|words| words.name.as_deref())
+            .filter(|name| !name.trim().is_empty())
+            .unwrap_or(&self.name)
+    }
+
+    /// The look a title placed in `language` takes: the preset's, with the
+    /// words that language gives it, if it gives any.
+    pub fn style_in(&self, language: &str) -> TextStyle {
+        let mut style = self.style.clone();
+        if let Some(content) = self
+            .words_in(language)
+            .and_then(|words| words.content.as_deref())
+            .filter(|content| !content.trim().is_empty())
+        {
+            style.set_content(content.to_owned(), None);
+        }
+        style
+    }
+
+    /// Whether the Text page's search for `query` (lower-cased) finds the
+    /// preset: by its own name, or by its name in any language it carries.
+    pub fn matches_query(&self, query: &str) -> bool {
+        query.is_empty()
+            || self.name.to_lowercase().contains(query)
+            || self.words.values().any(|words| {
+                words
+                    .name
+                    .as_deref()
+                    .is_some_and(|name| name.to_lowercase().contains(query))
+            })
+    }
 }
 
 #[derive(Deserialize)]
@@ -85,6 +161,9 @@ struct PresetFile {
     sample: Option<String>,
     #[serde(default)]
     style: PresetStyle,
+    /// Its words in other languages; see [`PresetWords`].
+    #[serde(default)]
+    i18n: BTreeMap<String, PresetWords>,
 }
 
 /// A title's fields, every one optional, laid over the default style.
@@ -96,6 +175,9 @@ struct PresetStyle {
     font_size: Option<f64>,
     font_weight: Option<f64>,
     italic: Option<bool>,
+    text_case: Option<concat_project::model::TextCase>,
+    underline: Option<bool>,
+    strikethrough: Option<bool>,
     color: Option<String>,
     align: Option<String>,
     opacity: Option<f64>,
@@ -110,12 +192,14 @@ struct PresetStyle {
     tracking: Option<f64>,
     max_width: Option<f64>,
     max_height: Option<f64>,
+    /// Some of the words in a look of their own; see `TextStyle::runs`.
+    runs: Option<Vec<concat_project::model::TextRun>>,
 }
 
 impl PresetStyle {
     fn over(self, name: &str) -> TextStyle {
         let base = TextStyle::default();
-        TextStyle {
+        let mut style = TextStyle {
             content: self.content.unwrap_or_else(|| name.to_owned()),
             font_family: self
                 .font_family
@@ -126,6 +210,9 @@ impl PresetStyle {
                 .unwrap_or(base.font_weight)
                 .clamp(100.0, 900.0),
             italic: self.italic.unwrap_or(false),
+            text_case: self.text_case.unwrap_or_default(),
+            underline: self.underline.unwrap_or(false),
+            strikethrough: self.strikethrough.unwrap_or(false),
             color: self.color.unwrap_or(base.color),
             align: match self.align.as_deref() {
                 Some("left") => TextAlign::Left,
@@ -153,7 +240,12 @@ impl PresetStyle {
             tracking: self.tracking.unwrap_or(0.0),
             max_width: self.max_width.unwrap_or(0.0).max(0.0),
             max_height: self.max_height.unwrap_or(0.0).max(0.0),
-        }
+            runs: self.runs.unwrap_or_default(),
+        };
+        // A hand-written run past the words, or on top of another, comes
+        // out in the shape the editor keeps them in.
+        style.tidy_runs();
+        style
     }
 }
 
@@ -261,6 +353,7 @@ fn parse(text: &str, folder: Option<&Path>) -> Option<(i64, TextPreset)> {
             font,
             language,
             sample,
+            words: file.i18n,
         },
     ))
 }
@@ -341,6 +434,46 @@ pub fn install_font(dirs: &AppDirs, preset: &TextPreset) -> Option<(String, Stri
 mod tests {
     use super::*;
 
+    /// Every shipped preset has a Simplified Chinese name; the plain title
+    /// and the lower third start in Chinese words under a Chinese
+    /// interface and in their own under any other, and the search finds a
+    /// preset by either name.
+    #[test]
+    fn every_built_in_preset_speaks_simplified_chinese() {
+        let han = |text: &str| text.chars().any(|c| ('\u{4e00}'..='\u{9fff}').contains(&c));
+        let presets = builtin();
+        for preset in &presets {
+            assert!(
+                han(preset.name_in("zh-Hans")),
+                "{} has no Chinese name",
+                preset.id
+            );
+            assert_eq!(preset.name_in("en"), preset.name, "{}", preset.id);
+        }
+        let plain = &presets[0];
+        assert_eq!(plain.name_in("zh-Hans"), "标题");
+        assert_eq!(plain.style_in("zh-Hans").content, "新标题");
+        assert_eq!(plain.style_in("en").content, "New title");
+        assert_eq!(
+            plain.style_in("zh-Hans").font_family,
+            plain.style.font_family
+        );
+        let third = presets
+            .iter()
+            .find(|p| p.id == "concat.lower-third")
+            .expect("lower third");
+        assert_eq!(third.style_in("zh-Hans").content, "姓名 — 职务");
+        // A face's own sample stays itself: its font has no Chinese.
+        let atomic = presets
+            .iter()
+            .find(|p| p.id == "concat.atomic")
+            .expect("atomic");
+        assert_eq!(atomic.style_in("zh-Hans").content, "Atomic");
+        assert!(third.matches_query("人名"));
+        assert!(third.matches_query("lower"));
+        assert!(!third.matches_query("海报"));
+    }
+
     #[test]
     fn built_in_ids_are_unique_and_the_plain_title_is_first() {
         let presets = builtin();
@@ -367,6 +500,37 @@ mod tests {
         assert_eq!(builtin().len(), embedded::BUILTIN.len());
     }
 
+    /// Every built-in preset's words are drawn in the face it names, from
+    /// the faces the app carries alone: a language preset whose letters
+    /// came from a fallback, or were boxes on a machine without the
+    /// script, would not be the look its card shows (#675).
+    #[test]
+    fn every_built_in_preset_is_drawn_in_its_own_face() {
+        let fonts = concat_text::Fonts::bundled();
+        // The check sees a gap where there is one: Abril Fatface is Latin.
+        assert_eq!(fonts.missing("Abril Fatface", 400, "Ж"), vec!['Ж']);
+        let mut wrong = Vec::new();
+        for preset in builtin() {
+            let style = &preset.style;
+            let missing = fonts.missing(
+                &style.font_family,
+                style.font_weight.round() as u16,
+                &style.content,
+            );
+            if !missing.is_empty() {
+                wrong.push(format!(
+                    "{} ({} {}): {missing:?}",
+                    preset.id, style.font_family, style.font_weight
+                ));
+            }
+        }
+        assert!(
+            wrong.is_empty(),
+            "letters their face lacks:\n{}",
+            wrong.join("\n")
+        );
+    }
+
     #[test]
     fn a_partial_style_lays_over_the_default() {
         let file: PresetFile = toml::from_str(
@@ -386,5 +550,35 @@ mod tests {
         assert_eq!(style.content, "Red");
         assert_eq!(style.font_weight, TextStyle::default().font_weight);
         assert_eq!(file.offset_y, Some(0.3));
+        assert!(style.runs.is_empty());
+    }
+
+    /// A preset can give some of its words a look of their own, written
+    /// as a table per run; one that runs past the words is held to them.
+    #[test]
+    fn a_preset_carries_its_styled_words() {
+        let file: PresetFile = toml::from_str(
+            r##"
+            id = "t.breaking"
+            name = "Breaking"
+            [style]
+            content = "BREAKING news"
+            [[style.runs]]
+            start = 0
+            end = 8
+            color = "#ff0000"
+            fontWeight = 900
+            [[style.runs]]
+            start = 9
+            end = 99
+            italic = true
+            "##,
+        )
+        .expect("parses");
+        let style = file.style.over(&file.name);
+        assert_eq!(style.runs.len(), 2);
+        assert_eq!(style.runs[0].style.color.as_deref(), Some("#ff0000"));
+        assert_eq!(style.runs[0].style.font_weight, Some(900.0));
+        assert_eq!((style.runs[1].start, style.runs[1].end), (9, 13));
     }
 }

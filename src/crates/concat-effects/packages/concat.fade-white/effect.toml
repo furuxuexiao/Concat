@@ -6,8 +6,17 @@ name = "Fade to White"
 kind = "transition"
 category = "Basic"
 order = 2
+aliases = ["fade-white"]
 description = "The outgoing shot fades up to white, then the incoming one fades down out of it."
 
 [transition]
 entry = "effect.wgsl"
 fallback = "cross-fade"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "白场过渡"
+category = "基础"
+description = "上一个镜头渐亮到白色，下一个镜头再从白色中渐显。"
+keywords = ["闪白", "白场"]

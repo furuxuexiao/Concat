@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// SPDX-FileCopyrightText: 2026 Jareer Abdullah and Concat contributors
+// SPDX-FileCopyrightText: 2026 Jareer Abdullah
 
+import { Features } from "../features.slint";
 import { I18n } from "../i18n.slint";
 import { Theme } from "../theme/theme.slint";
 import { Fmt } from "../util.slint";
@@ -119,7 +120,8 @@ export component ColorWheel inherits VerticalLayout {
             vertical-alignment: center;
         }
 
-        if root.data.keyable: KeyCluster {
+        // An advanced tool (features.slint), as on every keyable value.
+        if root.data.keyable && (Features.advanced || root.data.keyed): KeyCluster {
             name: root.data.key;
             state: {
                 field: ClipField.scale,

@@ -11,3 +11,11 @@ description = "A gentle, true-to-life lift: barely-there warmth, skin left alone
 [wgsl]
 entry = "effect.wgsl"
 space = "display"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "自然"
+category = "人像"
+description = "温和、真实的提亮：几乎察觉不到的暖意，肤色保持不变。"
+keywords = ["原生"]

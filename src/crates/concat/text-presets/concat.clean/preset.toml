@@ -9,3 +9,8 @@ fontFamily = "Inter"
 fontWeight = 600
 fontSize = 0.08
 shadow = false
+
+# Simplified Chinese: what the Text page shows when the interface is in
+# 简体中文.
+[i18n.zh-Hans]
+name = "简洁"

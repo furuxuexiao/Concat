@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// SPDX-FileCopyrightText: 2026 Jareer Abdullah and Concat contributors
+// SPDX-FileCopyrightText: 2026 Jareer Abdullah
 
 //! The base fonts, lent to the window, and the faces it falls back on for
 //! the scripts they have no glyphs for.
@@ -146,7 +146,7 @@ fn register_fallbacks(
         }
         if registered.is_empty() {
             log::warn!(
-                "fonts: the bundled {} face did not register",
+                "fonts: the bundled {} face would not register; text in its scripts falls back to the system's fonts",
                 fallback.family
             );
         }
@@ -275,7 +275,37 @@ mod tests {
             })
             .collect();
         let mut failures = Vec::new();
-        for (code, text) in crate::i18n::BUILT_IN {
+        // The interface's words beyond the locales: the packages' and the
+        // text presets' own translations, and the captions sheet's names
+        // for the languages it hears.
+        let mut carried = String::new();
+        for package in concat_effects::Catalogue::builtin().packages() {
+            for words in package.manifest.i18n.values() {
+                for text in [&words.name, &words.category, &words.description]
+                    .into_iter()
+                    .flatten()
+                {
+                    carried.push_str(text);
+                }
+                carried.extend(words.keywords.iter().map(String::as_str));
+                for knob in words.params.values() {
+                    carried.extend(knob.label.as_deref());
+                    carried.extend(knob.group.as_deref());
+                    carried.extend(knob.labels.iter().map(String::as_str));
+                }
+            }
+        }
+        for preset in crate::presets::builtin() {
+            for words in preset.words.values() {
+                carried.extend(words.name.as_deref());
+                carried.extend(words.content.as_deref());
+            }
+        }
+        for (_, name) in crate::panes::captions::ZH_HANS_NAMES {
+            carried.push_str(name);
+        }
+        let package_words = [("packages, presets and caption languages", carried.as_str())];
+        for (code, text) in crate::i18n::BUILT_IN.iter().copied().chain(package_words) {
             let mut missing: Vec<char> = text
                 .chars()
                 .filter(|ch| !ch.is_control())

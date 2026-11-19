@@ -1,0 +1,57 @@
+format = 2
+
+[effect]
+id = "concat.prism-shake"
+name = "Prism Shake"
+kind = "effect"
+category = "Shake"
+order = 7
+intensity = "amount"
+description = "Red, green and blue each shake on their own, so every edge fringes with colour as the frame trembles."
+
+[[param]]
+key = "amount"
+label = "Amount"
+unit = "%"
+min = 0
+max = 100
+step = 1
+default = 50
+
+[[param]]
+key = "speed"
+label = "Speed"
+unit = "%"
+min = 0
+max = 100
+step = 1
+default = 50
+
+[[param]]
+key = "split"
+label = "Split"
+unit = "%"
+min = 0
+max = 100
+step = 1
+default = 60
+
+[wgsl]
+entry = "effect.wgsl"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "棱镜震动"
+category = "震动"
+description = "红、绿、蓝三色各自抖动，画面颤动时每条边缘都带有彩色镶边。"
+keywords = ["抖动", "色差"]
+
+[i18n.zh-Hans.params.amount]
+label = "强度"
+
+[i18n.zh-Hans.params.speed]
+label = "速度"
+
+[i18n.zh-Hans.params.split]
+label = "分离"

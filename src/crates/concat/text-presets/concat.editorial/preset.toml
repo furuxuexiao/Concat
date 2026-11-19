@@ -10,3 +10,8 @@ fontWeight = 400
 fontSize = 0.1
 italic = true
 shadow = false
+
+# Simplified Chinese: what the Text page shows when the interface is in
+# 简体中文.
+[i18n.zh-Hans]
+name = "杂志"

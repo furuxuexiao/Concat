@@ -25,3 +25,14 @@ fallback = "cross-fade"
 # By the usual point of the cut the flash has burned the frame white.
 [card]
 progress = 0.15
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "胶片灼烧"
+category = "叠化"
+description = "一道温暖的过曝闪光烧穿切点。"
+keywords = ["烧胶片", "闪光"]
+
+[i18n.zh-Hans.params.heat]
+label = "热度"

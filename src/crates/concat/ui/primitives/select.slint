@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Jareer Abdullah and Concat contributors
 
+import { I18n } from "../i18n.slint";
 import { Theme } from "../theme/theme.slint";
 import { Glyph, Icon } from "../icons.slint";
 import { FocusRing } from "focus-ring.slint";
@@ -20,7 +21,7 @@ export component Select inherits Rectangle {
     /// the list to compare.
     in property <[string]> details;
     in-out property <int> current;
-    in property <string> placeholder: "Select";
+    in property <string> placeholder: I18n.t("common.selectPlaceholder");
     /// leading adornment on the trigger
     in property <Glyph> glyph: Glyph.none;
     /// One mark per option, in the same order. Set it and the trigger shows

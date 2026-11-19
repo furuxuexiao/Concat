@@ -11,3 +11,11 @@ description = "Muted highlights and deep, open shadows: the restrained look of a
 [wgsl]
 entry = "effect.wgsl"
 space = "display"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "经典正片"
+category = "胶片"
+description = "柔和的高光和深沉通透的阴影：经典彩色负片的克制质感。"
+keywords = ["富士", "胶片"]

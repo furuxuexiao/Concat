@@ -1,0 +1,46 @@
+format = 2
+
+[effect]
+id = "concat.blush"
+name = "Blush"
+kind = "filter"
+category = "Portrait"
+order = 20
+intensity = "glow"
+description = "Skin warmed toward peach and softened, shadows lifted so lines ease, contrast low. Portraits and talking heads; it is meant to run at half strength."
+
+[[param]]
+key = "glow"
+label = "Glow"
+min = 0
+max = 100
+default = 50
+step = 1
+unit = "%"
+
+[[param]]
+key = "softness"
+label = "Softness"
+min = 0
+max = 100
+default = 40
+step = 1
+unit = "%"
+
+[wgsl]
+entry = "effect.wgsl"
+space = "display"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "腮红"
+category = "人像"
+description = "肤色偏向蜜桃色并柔化，提亮阴影以淡化细纹，低对比。适合人像和口播，建议半强度使用。"
+keywords = ["粉嫩", "人像"]
+
+[i18n.zh-Hans.params.glow]
+label = "光晕"
+
+[i18n.zh-Hans.params.softness]
+label = "柔和度"

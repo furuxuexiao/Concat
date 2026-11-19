@@ -35,3 +35,17 @@ space = "display"
 # blue wall and the green jumper show the look.
 [card]
 params = { sky = 100, greens = 100 }
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "晴空"
+category = "日常"
+description = "天空更深更蓝，植物更冷静清爽，画面其余部分和人脸不受影响。适合旅行视频。"
+keywords = ["蓝天", "旅行"]
+
+[i18n.zh-Hans.params.sky]
+label = "天空"
+
+[i18n.zh-Hans.params.greens]
+label = "绿色"

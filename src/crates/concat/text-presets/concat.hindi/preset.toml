@@ -1,0 +1,17 @@
+id = "concat.hindi"
+name = "Hindi"
+language = "Hindi"
+order = 50
+
+[style]
+content = "नमस्ते"
+fontFamily = "Noto Sans Devanagari"
+fontWeight = 400
+fontSize = 0.1
+strokeWidth = 0.008
+strokeColor = "#000000"
+
+# Simplified Chinese: what the Text page shows when the interface is in
+# 简体中文.
+[i18n.zh-Hans]
+name = "印地文"

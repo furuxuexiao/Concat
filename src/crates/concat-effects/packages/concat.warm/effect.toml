@@ -22,3 +22,14 @@ unit = "K"
 [wgsl]
 entry = "effect.wgsl"
 space = "display"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "暖调"
+category = "色彩"
+description = "让画面偏向烛光色调。"
+keywords = ["暖色", "黄调"]
+
+[i18n.zh-Hans.params.temperature]
+label = "色温"

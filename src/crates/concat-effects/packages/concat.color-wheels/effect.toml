@@ -49,3 +49,23 @@ space = "display"
 # highlight.
 [card]
 params = { "lift.x" = 0.0, "lift.y" = -0.6, "gain.x" = 0.35, "gain.y" = 0.45 }
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "色轮"
+category = "色彩"
+description = "暗部、中间调和高光：分别推向某个色相，并调亮或调暗。"
+keywords = ["调色", "一级调色"]
+
+[i18n.zh-Hans.params.lift]
+label = "暗部"
+group = "色轮"
+
+[i18n.zh-Hans.params.gamma]
+label = "中间调"
+group = "色轮"
+
+[i18n.zh-Hans.params.gain]
+label = "高光"
+group = "色轮"

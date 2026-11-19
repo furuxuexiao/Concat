@@ -66,3 +66,23 @@ shrink = ["4", "4"]
 
 [card]
 params = { threshold = 38, amount = 75 }
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "胶片光晕"
+category = "胶片"
+description = "胶片在过曝高光周围形成的红橙色光晕：光穿过乳剂，被片基散射后又折回来。"
+keywords = ["光晕", "辉光"]
+
+[i18n.zh-Hans.params.threshold]
+label = "阈值"
+
+[i18n.zh-Hans.params.radius]
+label = "半径"
+
+[i18n.zh-Hans.params.amount]
+label = "强度"
+
+[i18n.zh-Hans.params.tint]
+label = "色调"

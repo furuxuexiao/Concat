@@ -21,3 +21,14 @@ step = 0.05
 [wgsl]
 entry = "effect.wgsl"
 space = "display"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "对比增强"
+category = "色彩"
+description = "阴影更深，高光更亮。"
+keywords = ["通透"]
+
+[i18n.zh-Hans.params.contrast]
+label = "对比度"

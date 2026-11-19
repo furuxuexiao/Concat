@@ -1,0 +1,17 @@
+id = "concat.russian"
+name = "Russian"
+language = "Cyrillic"
+order = 61
+
+[style]
+content = "Привет"
+fontFamily = "Montserrat"
+fontWeight = 800
+fontSize = 0.09
+strokeWidth = 0.01
+strokeColor = "#000000"
+
+# Simplified Chinese: what the Text page shows when the interface is in
+# 简体中文.
+[i18n.zh-Hans]
+name = "俄文"

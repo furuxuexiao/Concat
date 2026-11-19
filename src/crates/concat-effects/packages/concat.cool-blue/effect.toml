@@ -30,3 +30,17 @@ unit = "%"
 [wgsl]
 entry = "effect.wgsl"
 space = "display"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "冷蓝"
+category = "电影感"
+description = "阴影和中间调偏蓝，高光和肤色保持中性，提高对比。适合黄昏城市。"
+keywords = ["蓝调"]
+
+[i18n.zh-Hans.params.chill]
+label = "冷感"
+
+[i18n.zh-Hans.params.contrast]
+label = "对比度"

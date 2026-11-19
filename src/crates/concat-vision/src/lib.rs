@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// SPDX-FileCopyrightText: 2026 Jareer Abdullah and Concat contributors
+// SPDX-FileCopyrightText: 2026 Jareer Abdullah
 
 //! What the engine sees in a picture.
 //!
@@ -47,14 +47,18 @@
 pub mod apply;
 #[cfg(feature = "infer")]
 pub mod brush;
+pub mod compact;
 pub mod enhance;
+pub mod interpolate;
 pub mod mask;
 pub mod models;
 pub mod onnx;
+pub mod reframe;
 #[cfg(feature = "infer")]
 pub mod runtime;
 #[cfg(feature = "infer")]
 pub mod segment;
+pub mod shots;
 pub mod stabilize;
 pub mod store;
 pub mod strokes;
@@ -64,6 +68,8 @@ pub use apply::{Mapping, cut, highlight};
 pub use brush::{Brush, Embedding};
 #[cfg(feature = "infer")]
 pub use enhance::Enhancer;
+#[cfg(feature = "infer")]
+pub use interpolate::Interpolator;
 pub use mask::Mask;
 pub use models::ModelId;
 #[cfg(feature = "infer")]

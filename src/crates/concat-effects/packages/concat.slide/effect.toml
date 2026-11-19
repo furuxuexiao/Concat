@@ -6,18 +6,30 @@ name = "Slide"
 kind = "transition"
 category = "Slide"
 order = 4
-description = "The incoming shot slides in over the outgoing one, which holds still underneath."
+description = "The next shot glides in over the last one and settles, casting a soft shadow on the shot it covers."
 
 [[param]]
 key = "direction"
 label = "Direction"
 type = "enum"
-min = 0
-max = 3
-default = 0
 values = [0, 1, 2, 3]
 labels = ["Left", "Right", "Up", "Down"]
+default = 0
+min = 0
+max = 3
 
 [transition]
-entry = "effect.wgsl"
 fallback = "cross-fade"
+entry = "effect.wgsl"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "滑入"
+category = "滑动"
+description = "下一个镜头滑入并覆盖上一个镜头，在其上投下柔和的阴影。"
+keywords = ["滑动", "覆盖"]
+
+[i18n.zh-Hans.params.direction]
+label = "方向"
+labels = ["向左", "向右", "向上", "向下"]

@@ -25,3 +25,14 @@ fallback = "cross-fade"
 # By the usual point of the cut the flash has burned the frame white.
 [card]
 progress = 0.15
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "漏光闪烁"
+category = "光效"
+description = "自然的过曝胶片灼烧闪光衔接两个镜头。"
+keywords = ["漏光", "闪光"]
+
+[i18n.zh-Hans.params.strength]
+label = "强度"

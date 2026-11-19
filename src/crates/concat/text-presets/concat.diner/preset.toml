@@ -11,3 +11,8 @@ fontSize = 0.11
 color = "#ff4d4d"
 strokeWidth = 0.006
 strokeColor = "#ffffff"
+
+# Simplified Chinese: what the Text page shows when the interface is in
+# 简体中文.
+[i18n.zh-Hans]
+name = "餐厅招牌"

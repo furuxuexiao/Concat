@@ -1,0 +1,18 @@
+id = "concat.ukrainian"
+name = "Ukrainian"
+language = "Cyrillic"
+order = 62
+
+[style]
+content = "Привіт"
+fontFamily = "Lobster"
+fontWeight = 400
+fontSize = 0.1
+color = "#FFD500"
+strokeWidth = 0.008
+strokeColor = "#0057B7"
+
+# Simplified Chinese: what the Text page shows when the interface is in
+# 简体中文.
+[i18n.zh-Hans]
+name = "乌克兰文"

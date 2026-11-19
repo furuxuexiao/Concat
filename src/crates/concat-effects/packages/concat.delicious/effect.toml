@@ -11,3 +11,11 @@ description = "Warm and saturated, the appetising push every food shot wants."
 [wgsl]
 entry = "effect.wgsl"
 space = "display"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "美味"
+category = "美食"
+description = "温暖饱和，每个美食镜头都需要的诱人色调。"
+keywords = ["食物", "美食"]

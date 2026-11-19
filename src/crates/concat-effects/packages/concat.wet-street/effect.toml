@@ -1,0 +1,46 @@
+format = 2
+
+[effect]
+id = "concat.wet-street"
+name = "Wet Street"
+kind = "filter"
+category = "Cinematic"
+order = 38
+intensity = "haze"
+description = "Cool, hazy and drained, with the wet reflections lifted and blooming. Street-level walks at the end of the day."
+
+[[param]]
+key = "haze"
+label = "Haze"
+min = 0
+max = 100
+default = 60
+step = 1
+unit = "%"
+
+[[param]]
+key = "chill"
+label = "Chill"
+min = 0
+max = 100
+default = 50
+step = 1
+unit = "%"
+
+[wgsl]
+entry = "effect.wgsl"
+space = "display"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "雨后街道"
+category = "电影感"
+description = "冷调、朦胧、低饱和，湿润的反光被提亮并泛起光晕。适合傍晚的街头漫步。"
+keywords = ["雨天", "街拍"]
+
+[i18n.zh-Hans.params.haze]
+label = "朦胧"
+
+[i18n.zh-Hans.params.chill]
+label = "冷感"

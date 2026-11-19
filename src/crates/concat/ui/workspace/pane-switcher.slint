@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// SPDX-FileCopyrightText: 2026 Jareer Abdullah and Concat contributors
+// SPDX-FileCopyrightText: 2026 Jareer Abdullah
 
+import { Features } from "../features.slint";
 import { I18n } from "../i18n.slint";
 import { Theme } from "../theme/theme.slint";
 import { Glyph, Icon } from "../icons.slint";
@@ -389,7 +390,9 @@ export component PaneSwitcher inherits Rectangle {
                         current: root.kind == PaneKind.inspector;
                         chosen => { menu.close(); root.picked(PaneKind.inspector); }
                     }
-                    SwitchRow {
+                    // The keyframes pane is an advanced tool (features.slint);
+                    // a seat already showing it keeps its row.
+                    if Features.advanced || root.kind == PaneKind.keyframes: SwitchRow {
                         kind: PaneKind.keyframes;
                         current: root.kind == PaneKind.keyframes;
                         chosen => { menu.close(); root.picked(PaneKind.keyframes); }
@@ -493,7 +496,7 @@ export component AddPaneButton inherits Rectangle {
                         kind: PaneKind.inspector;
                         chosen => { menu.close(); root.added(PaneKind.inspector); }
                     }
-                    SwitchRow {
+                    if Features.advanced: SwitchRow {
                         kind: PaneKind.keyframes;
                         chosen => { menu.close(); root.added(PaneKind.keyframes); }
                     }

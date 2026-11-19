@@ -11,3 +11,8 @@ fontSize = 0.12
 color = "#ffd23f"
 strokeWidth = 0.006
 strokeColor = "#1a1a1a"
+
+# Simplified Chinese: what the Text page shows when the interface is in
+# 简体中文.
+[i18n.zh-Hans]
+name = "动物园"

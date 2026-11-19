@@ -15,6 +15,7 @@
 
 use concat_host::export::{self, ExportSpec};
 use concat_media::ColorRange;
+use concat_media::platform::{Advice, Orientation, Platform, Shape};
 
 use crate::format::{bytes, eta};
 use crate::host::{on_ui, spawn};
@@ -24,6 +25,11 @@ use crate::platform;
 use crate::studio::{AUDIO_BPS, EXPORT_CRF, EXPORT_SHORT_SIDES, RATES, Studio, home_folder};
 use crate::ui::{ExportData, ExportPhase};
 use slint::{ModelRc, SharedString, VecModel};
+
+/// A rate as frames a second.
+fn fps_of((num, den): (i64, i64)) -> f64 {
+    num as f64 / den.max(1) as f64
+}
 
 /// Everything that can happen to the export sheet.
 #[derive(Clone, Debug)]
@@ -40,6 +46,9 @@ pub enum ExportMsg {
     HdrChanged(bool),
     /// The target bitrate field, in Mbps: the bitrate becomes a custom one.
     BitrateChanged(f32),
+    /// The platform picker: 0 is none, then [`Platform::ALL`] in order.
+    /// Sets the codec, the rate and the bitrate the platform takes.
+    PresetChanged(i32),
     /// Back to the form after a finished or failed render.
     Again,
     /// Pick the destination folder.
@@ -83,6 +92,20 @@ pub struct ExportPane {
     pub sdr: bool,
     /// The typed bitrate in kbps, the one written when `custom`.
     pub bitrate: u32,
+    /// The platform the file is for: what the sheet set its codec, rate
+    /// and bitrate from, until one of them is changed by hand.
+    pub preset: Option<Platform>,
+    /// The preset turned ten bits or HDR off - the timeline is HDR, or
+    /// the file was to be written at ten bits, and the platform takes
+    /// 8-bit SDR only - which the note under the picker says. Read from
+    /// before the preset, as after it the sheet is 8-bit SDR whatever the
+    /// edit was.
+    pub preset_dropped_deep: bool,
+    /// The sheet's own ten-bit and HDR switches, `(ten_bit, sdr)`, as they
+    /// were before the first preset changed them: put back when a platform
+    /// that takes HDR is picked after one that does not, or the preset is
+    /// set back to none. Kept only while a preset is.
+    own_depth: Option<(bool, bool)>,
     pub phase: ExportPhase,
     pub progress: f32,
     pub stage: String,
@@ -113,6 +136,9 @@ impl Default for ExportPane {
             ten_bit: false,
             sdr: false,
             bitrate: 8000,
+            preset: None,
+            preset_dropped_deep: false,
+            own_depth: None,
             phase: ExportPhase::Idle,
             progress: 0.0,
             stage: String::new(),
@@ -138,11 +164,18 @@ impl ExportPane {
                 // and its own rate, first on the rate list.
                 self.resolution = Self::own_rung(studio);
                 self.rate = 0;
+                self.follow_canvas(studio);
+                // A platform picked before is picked again, for this
+                // timeline's rate as it now is.
+                if let Some(platform) = self.preset {
+                    self.apply_preset(platform, studio);
+                }
             }
             ExportMsg::Close => self.open = false,
             ExportMsg::NameEdited(name) => self.name = name,
             ExportMsg::RateChanged(index) => {
                 self.rate = (index.max(0) as usize).min(Self::rates(studio).len() - 1);
+                self.clear_preset();
             }
             // A codec this device cannot encode is not taken: the picker
             // says so under it, and the choice before stands.
@@ -150,14 +183,38 @@ impl ExportPane {
                 let index = (index.max(0) as usize).min(concat_media::VideoCodec::ALL.len() - 1);
                 if concat_media::VideoCodec::ALL[index].encodable() {
                     self.codec = index;
+                    self.clear_preset();
                 }
             }
-            ExportMsg::TenBitChanged(on) => self.ten_bit = on,
-            ExportMsg::HdrChanged(on) => self.sdr = !on,
+            ExportMsg::TenBitChanged(on) => {
+                self.ten_bit = on;
+                self.clear_preset();
+            }
+            ExportMsg::HdrChanged(on) => {
+                self.sdr = !on;
+                self.clear_preset();
+            }
             ExportMsg::BitrateChanged(mbps) => {
                 if mbps.is_finite() {
                     self.bitrate = ((mbps * 1000.0).round() as u32).clamp(500, 400_000);
                     self.custom = true;
+                    self.clear_preset();
+                }
+            }
+            ExportMsg::PresetChanged(index) => {
+                let platform = usize::try_from(index)
+                    .ok()
+                    .and_then(|index| index.checked_sub(1))
+                    .and_then(|index| Platform::ALL.get(index).copied());
+                match platform {
+                    Some(platform) => self.apply_preset(platform, studio),
+                    None => {
+                        // Back to the sheet's own recommendation, and its
+                        // own ten bits and HDR.
+                        self.restore_depth();
+                        self.clear_preset();
+                        self.custom = false;
+                    }
                 }
             }
             ExportMsg::Again => {
@@ -238,6 +295,153 @@ impl ExportPane {
                 studio.notify(&tf("export.exportFailed", &[&error]), true);
             }
         }
+    }
+
+    /// The preset is no longer what the sheet is set to: a field was
+    /// changed by hand, or "none" picked.
+    fn clear_preset(&mut self) {
+        self.preset = None;
+        self.preset_dropped_deep = false;
+        self.own_depth = None;
+    }
+
+    /// The sheet's ten-bit and HDR switches back as they were before the
+    /// first preset, if one changed them.
+    fn restore_depth(&mut self) {
+        if let Some((ten_bit, sdr)) = self.own_depth {
+            self.ten_bit = ten_bit;
+            self.sdr = sdr;
+        }
+    }
+
+    /// The ten-bit and HDR part of a preset for `platform`, the file being
+    /// `deep_before` it: the first preset keeps the sheet's own switches;
+    /// a platform that takes 8-bit SDR only turns both off, and says so
+    /// (an earlier preset that did keeps saying so); one that takes HDR
+    /// puts the sheet's own back, so YouTube after Douyin is HDR again.
+    fn preset_depth(&mut self, platform: Platform, deep_before: bool) {
+        let carried = self.preset.is_some() && self.preset_dropped_deep;
+        if self.preset.is_none() {
+            self.own_depth = Some((self.ten_bit, self.sdr));
+        }
+        self.preset_dropped_deep = Self::drops_deep(platform, deep_before, carried);
+        if platform.eight_bit_only() {
+            self.ten_bit = false;
+            self.sdr = true;
+        } else {
+            self.restore_depth();
+        }
+    }
+
+    /// Sets the sheet to what `platform` takes: H.264 where this device
+    /// can write it (otherwise the codec picked stands), the timeline's
+    /// own rate unless the platform plays slower (then the fastest exact
+    /// divisor of it the platform plays), the platform's bitrate at that
+    /// rate, and 8-bit SDR where it takes nothing else (the sheet's own
+    /// ten bits and HDR where it does). The frame is the
+    /// timeline's, as ever; what the platform would want of it is said
+    /// under the picker instead.
+    fn apply_preset(&mut self, platform: Platform, studio: &Studio) {
+        use concat_media::VideoCodec;
+        // What the file would have been before the preset: an HDR
+        // timeline, or a ten-bit one, is announced when the preset makes
+        // it 8-bit SDR. A preset applied again (the sheet reopened, or
+        // another 8-bit platform picked) keeps what the first one turned
+        // off; one that takes HDR puts the sheet's own switches back.
+        let deep_before = self.deep(studio) || studio.timeline().video.color_space.is_hdr();
+        self.preset_depth(platform, deep_before);
+        if let Some(index) = VideoCodec::ALL
+            .iter()
+            .position(|codec| *codec == VideoCodec::H264 && codec.encodable())
+        {
+            self.codec = index;
+        }
+        let rates = Self::rates(studio);
+        self.rate = Self::preset_rate(platform, &rates);
+        self.bitrate = platform.kbps(fps_of(self.rate(studio)));
+        self.custom = true;
+        self.preset = Some(platform);
+        log::info!(
+            "export: preset {} · {:?} at {} kbps, {:.3} fps",
+            platform.id(),
+            self.codec(studio),
+            self.bitrate,
+            fps_of(self.rate(studio))
+        );
+    }
+
+    /// Whether a preset for `platform` turns ten bits or HDR off: the file
+    /// was `deep_before` it, or an earlier preset already had (`carried`),
+    /// and the platform takes 8-bit SDR only.
+    fn drops_deep(platform: Platform, deep_before: bool, carried: bool) -> bool {
+        platform.eight_bit_only() && (deep_before || carried)
+    }
+
+    /// The rate on the sheet's list, `rates` with the timeline's own
+    /// first, nearest what `platform` exports the timeline at.
+    fn preset_rate(platform: Platform, rates: &[(i64, i64)]) -> usize {
+        let Some(&own) = rates.first() else {
+            return 0;
+        };
+        let wanted = platform.fps_for(fps_of(own));
+        rates
+            .iter()
+            .enumerate()
+            .min_by(|(_, a), (_, b)| {
+                (fps_of(**a) - wanted)
+                    .abs()
+                    .total_cmp(&(fps_of(**b) - wanted).abs())
+            })
+            .map_or(0, |(index, _)| index)
+    }
+
+    /// The platform's name as the picker shows it.
+    fn platform_name(platform: Platform) -> String {
+        // A call per name, so the locale inventory finds each key.
+        match platform {
+            Platform::Douyin => t("export.presetDouyin"),
+            Platform::Channels => t("export.presetChannels"),
+            Platform::Bilibili => t("export.presetBilibili"),
+            Platform::Bilibili4k => t("export.presetBilibili4k"),
+            Platform::YouTube => t("export.presetYouTube"),
+        }
+    }
+
+    /// What the sheet says under the picker: what the chosen platform
+    /// would not take about this edit as it is, a sentence each.
+    fn preset_note(&self, studio: &Studio) -> String {
+        let Some(platform) = self.preset else {
+            return String::new();
+        };
+        let (width, height) = self.size(studio);
+        let name = Self::platform_name(platform);
+        platform
+            .advise(width, height, self.deep(studio) || self.preset_dropped_deep)
+            .into_iter()
+            .map(|advice| match advice {
+                Advice::Orientation { wanted, edit } => match (wanted, edit) {
+                    (Orientation::Upright, Shape::Square) => {
+                        tf("export.adviceUprightSquare", &[&name])
+                    }
+                    (Orientation::Upright, _) => tf("export.adviceUpright", &[&name]),
+                    (_, Shape::Square) => tf("export.adviceWideSquare", &[&name]),
+                    _ => tf("export.adviceWide", &[&name]),
+                },
+                // Bilibili's 4K floor is 1600 on the short side, so a
+                // 3840 x 1600 cut counts; "at least 1600P" is no label
+                // anyone knows, so the note says 4K and gives the size.
+                Advice::TooSmall(_) if platform == Platform::Bilibili4k => {
+                    tf("export.adviceNot4k", &[&name, &width.min(height)])
+                }
+                Advice::TooSmall(short) => tf(
+                    "export.adviceTooSmall",
+                    &[&name, &short, &width.min(height)],
+                ),
+                Advice::TooLarge(short) => tf("export.adviceTooLarge", &[&name, &short]),
+                Advice::EightBitOnly => tf("export.adviceEightBit", &[&name]),
+            })
+            .collect::<Vec<_>>()
+            .join(" ")
     }
 
     /// The resolution ladder for this project: the standard short sides,
@@ -366,6 +570,32 @@ impl ExportPane {
         (video + AUDIO_BPS) * studio.duration().max(1.0) / 8.0
     }
 
+    /// The codec a sheet opens on follows the canvas (#456): a timeline
+    /// that lets something show through opens on ProRes 4444, which every
+    /// editor takes with its alpha (VP9 where ProRes cannot be written),
+    /// and an opaque one leaves an alpha codec picked for an overlay
+    /// before for H.264, rather than writing it hundreds of megabits it
+    /// has no use for. Within the sheet the pick is the person's.
+    fn follow_canvas(&mut self, studio: &Studio) {
+        use concat_media::VideoCodec;
+        let chosen = VideoCodec::ALL[self.codec.min(VideoCodec::ALL.len() - 1)];
+        let see_through = studio.timeline().video.canvas[3] < 255;
+        let wanted = if see_through && !chosen.keeps_alpha() {
+            [VideoCodec::ProRes4444, VideoCodec::Vp9Alpha]
+                .into_iter()
+                .find(|codec| codec.encodable())
+        } else if !see_through && chosen.keeps_alpha() {
+            Some(VideoCodec::H264)
+        } else {
+            None
+        };
+        if let Some(index) =
+            wanted.and_then(|codec| VideoCodec::ALL.iter().position(|c| *c == codec))
+        {
+            self.codec = index;
+        }
+    }
+
     /// The codec the sheet has chosen - HEVC for an HDR file where H.264
     /// was, since H.264 does not carry HDR.
     pub fn codec(&self, studio: &Studio) -> concat_media::VideoCodec {
@@ -389,7 +619,10 @@ impl ExportPane {
             concat_media::VideoCodec::H264 => concat_media::VideoCodec::Hevc,
             codec => codec,
         };
-        studio.timeline().video.color_space.is_hdr()
+        // An overlay that keeps its alpha is written SDR: the export
+        // tone-maps an HDR timeline for it.
+        !chosen.keeps_alpha()
+            && studio.timeline().video.color_space.is_hdr()
             && !self.sdr
             && deep.ten_bit_available()
             && deep.encodable()
@@ -426,7 +659,11 @@ impl ExportPane {
             self.message = t("export.nameNeedsToBeAFileName");
             return;
         };
-        let output = format!("{}/{name}.mp4", self.folder.trim_end_matches('/'));
+        let output = format!(
+            "{}/{name}.{}",
+            self.folder.trim_end_matches('/'),
+            self.codec(studio).container()
+        );
         // A file already there is replaced once the person has said so:
         // the confirmation sheet asks, and its answer comes back as
         // `Overwrite`. Nothing is written until then; the engine renders
@@ -486,7 +723,7 @@ impl ExportPane {
             .pool()
             .close_idle(std::time::Duration::ZERO);
         if closed > 0 {
-            log::info!("export: closed {closed} idle preview decoder(s) before starting");
+            log::debug!("export: closed {closed} idle preview decoder(s) before starting");
         }
         self.phase = ExportPhase::Running;
         self.progress = 0.0;
@@ -541,6 +778,7 @@ impl ExportPane {
             .iter()
             .filter(|clip| clip.kind == concat_project::model::ClipKind::Text)
             .count();
+        let container = self.codec(studio).container();
         ExportData {
             open: self.open,
             name: self.name.as_str().into(),
@@ -548,9 +786,9 @@ impl ExportPane {
             // shows, not the app's own that the export writes into.
             // The name as it will be written: trimmed, as `begin` trims it.
             path: match platform::published_folder() {
-                Some(folder) => format!("{folder}/{}.mp4", self.name.trim()),
+                Some(folder) => format!("{folder}/{}.{container}", self.name.trim()),
                 None => format!(
-                    "{}/{}.mp4",
+                    "{}/{}.{container}",
                     self.folder.trim_end_matches('/'),
                     self.name.trim()
                 ),
@@ -599,6 +837,11 @@ impl ExportPane {
             h264_encodable: concat_media::VideoCodec::H264.encodable(),
             hevc_encodable: concat_media::VideoCodec::Hevc.encodable(),
             av1_encodable: concat_media::VideoCodec::Av1.encodable(),
+            prores_encodable: concat_media::VideoCodec::ProRes4444.encodable(),
+            vp9_alpha_encodable: concat_media::VideoCodec::Vp9Alpha.encodable(),
+            see_through: studio.timeline().video.canvas[3] < 255,
+            keeps_alpha: self.codec(studio).keeps_alpha(),
+            rate_controlled: self.codec(studio).rate_controlled(),
             ten_bit: self.ten_bit,
             hdr_timeline: studio.timeline().video.color_space.is_hdr(),
             hdr: self.hdr(studio),
@@ -652,6 +895,35 @@ impl ExportPane {
             message: self.message.as_str().into(),
             done_size: bytes(self.size_bytes(studio)).into(),
             empty: clips == 0,
+            preset: self.preset.map_or(0, |platform| {
+                Platform::ALL
+                    .iter()
+                    .position(|known| *known == platform)
+                    .map_or(0, |index| index as i32 + 1)
+            }),
+            presets: {
+                let names: Vec<SharedString> = std::iter::once(t("export.presetNone"))
+                    .chain(
+                        Platform::ALL
+                            .iter()
+                            .map(|platform| Self::platform_name(*platform)),
+                    )
+                    .map(SharedString::from)
+                    .collect();
+                ModelRc::new(VecModel::from(names))
+            },
+            preset_details: {
+                let details: Vec<SharedString> = std::iter::once(t("export.presetNoneDetail"))
+                    .chain(Platform::ALL.iter().map(|platform| {
+                        let lines = platform.max_short_side();
+                        let mbps = platform.kbps(30.0) as f32 / 1000.0;
+                        format!("{lines}p · {mbps} Mbps · H.264")
+                    }))
+                    .map(SharedString::from)
+                    .collect();
+                ModelRc::new(VecModel::from(details))
+            },
+            preset_note: self.preset_note(studio).into(),
         }
     }
 }
@@ -705,5 +977,107 @@ mod tests {
         assert_eq!(ExportPane::rate_name((25, 1)), "25 fps");
         assert_eq!(ExportPane::rate_name((15, 1)), "15 fps");
         assert_eq!(ExportPane::rate_name((12500, 1000)), "12.5 fps");
+    }
+
+    /// A preset picks the rate on the list it exports at: the timeline's
+    /// own where the platform plays it, an exact divisor where not.
+    #[test]
+    fn a_preset_picks_the_rate_it_exports_at() {
+        let pick = |platform: Platform, own: (i64, i64)| {
+            let rates = ExportPane::rates_around(own);
+            rates[ExportPane::preset_rate(platform, &rates)]
+        };
+        assert_eq!(pick(Platform::Channels, (50, 1)), (25, 1));
+        assert_eq!(pick(Platform::Channels, (60000, 1001)), (30000, 1001));
+        assert_eq!(pick(Platform::Channels, (60, 1)), (30, 1));
+        assert_eq!(pick(Platform::Channels, (30, 1)), (30, 1));
+        assert_eq!(pick(Platform::Channels, (25, 1)), (25, 1));
+        assert_eq!(pick(Platform::Douyin, (50, 1)), (50, 1));
+        assert_eq!(pick(Platform::Bilibili, (24000, 1001)), (24000, 1001));
+        assert_eq!(ExportPane::preset_rate(Platform::Douyin, &[]), 0);
+    }
+
+    /// An 8-bit-only platform says it turned ten bits or HDR off whenever
+    /// the file was deep before it, or an earlier preset already turned
+    /// it off; YouTube, which takes HDR, turns nothing off.
+    #[test]
+    fn an_eight_bit_preset_says_it_turned_hdr_off() {
+        assert!(ExportPane::drops_deep(Platform::Douyin, true, false));
+        assert!(ExportPane::drops_deep(Platform::Bilibili, false, true));
+        assert!(!ExportPane::drops_deep(Platform::Channels, false, false));
+        let mut pane = ExportPane {
+            ten_bit: true,
+            ..ExportPane::default()
+        };
+        pane.preset_depth(Platform::YouTube, true);
+        pane.preset = Some(Platform::YouTube);
+        assert!(!pane.preset_dropped_deep);
+        assert!(pane.ten_bit && !pane.sdr, "YouTube keeps ten bits and HDR");
+    }
+
+    /// Douyin turns a deep sheet 8-bit SDR and says so; YouTube or B站 4K
+    /// picked after it puts the sheet's own ten bits and HDR back rather
+    /// than leaving them off without a word, and Bilibili 1080P after
+    /// Douyin keeps the note. "None" puts them back too.
+    #[test]
+    fn youtube_after_douyin_puts_hdr_back() {
+        let deep = || ExportPane {
+            ten_bit: true,
+            sdr: false,
+            ..ExportPane::default()
+        };
+        let pick = |pane: &mut ExportPane, platform: Platform, deep_before: bool| {
+            pane.preset_depth(platform, deep_before);
+            pane.preset = Some(platform);
+        };
+        let mut pane = deep();
+        pick(&mut pane, Platform::Douyin, true);
+        assert!(pane.preset_dropped_deep);
+        assert!(!pane.ten_bit && pane.sdr);
+        // After Douyin the sheet is 8-bit SDR, so not deep before YouTube.
+        pick(&mut pane, Platform::YouTube, false);
+        assert!(!pane.sdr, "HDR is on again under YouTube");
+        assert!(pane.ten_bit);
+        assert!(!pane.preset_dropped_deep);
+        // And Douyin again turns it off and says so.
+        pick(&mut pane, Platform::Douyin, true);
+        assert!(pane.preset_dropped_deep && pane.sdr && !pane.ten_bit);
+
+        let mut pane = deep();
+        pick(&mut pane, Platform::Douyin, true);
+        pick(&mut pane, Platform::Bilibili, false);
+        assert!(pane.preset_dropped_deep, "the note carries over");
+
+        // Bilibili's 4K takes HDR10 and HLG at 10 bits: HDR is back, and
+        // no note says otherwise.
+        let mut pane = deep();
+        pick(&mut pane, Platform::Douyin, true);
+        pick(&mut pane, Platform::Bilibili4k, false);
+        assert!(!pane.sdr && pane.ten_bit && !pane.preset_dropped_deep);
+        let mut pane = deep();
+        pick(&mut pane, Platform::Bilibili4k, true);
+        assert!(!pane.sdr && pane.ten_bit && !pane.preset_dropped_deep);
+
+        let mut pane = deep();
+        pick(&mut pane, Platform::Douyin, true);
+        pane.restore_depth();
+        pane.clear_preset();
+        assert!(pane.ten_bit && !pane.sdr);
+        assert_eq!(pane.own_depth, None);
+    }
+
+    /// A field changed by hand clears the preset, and with it the note
+    /// that the preset turned HDR off.
+    #[test]
+    fn clearing_the_preset_clears_its_note() {
+        let mut pane = ExportPane {
+            preset: Some(Platform::Douyin),
+            preset_dropped_deep: true,
+            ..ExportPane::default()
+        };
+        pane.clear_preset();
+        assert_eq!(pane.preset, None);
+        assert!(!pane.preset_dropped_deep);
+        assert_eq!(pane.own_depth, None);
     }
 }

@@ -1,0 +1,46 @@
+format = 2
+
+[effect]
+id = "concat.instant-print"
+name = "Instant Print"
+kind = "filter"
+category = "Retro"
+order = 41
+intensity = "fade"
+description = "The instant print: a cream matte, warm highlights, cyan creeping into the shadows, a little softness in the corners."
+
+[[param]]
+key = "fade"
+label = "Fade"
+min = 0
+max = 100
+default = 60
+step = 1
+unit = "%"
+
+[[param]]
+key = "warmth"
+label = "Warmth"
+min = 0
+max = 100
+default = 50
+step = 1
+unit = "%"
+
+[wgsl]
+entry = "effect.wgsl"
+space = "display"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "拍立得"
+category = "复古"
+description = "拍立得相纸：奶油色哑光、温暖高光、阴影里渗入青色，四角略微柔化。"
+keywords = ["宝丽来", "相纸"]
+
+[i18n.zh-Hans.params.fade]
+label = "褪色"
+
+[i18n.zh-Hans.params.warmth]
+label = "暖度"

@@ -1,0 +1,46 @@
+format = 2
+
+[effect]
+id = "concat.aquamarine"
+name = "Aquamarine"
+kind = "filter"
+category = "Everyday"
+order = 16
+intensity = "water"
+description = "Water and sky turned aquamarine and brightened, sand and skin left warm and clean. The beach-day look creators reach for first."
+
+[[param]]
+key = "water"
+label = "Water"
+min = 0
+max = 100
+default = 60
+step = 1
+unit = "%"
+
+[[param]]
+key = "brightness"
+label = "Brightness"
+min = 0
+max = 100
+default = 40
+step = 1
+unit = "%"
+
+[wgsl]
+entry = "effect.wgsl"
+space = "display"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "海蓝"
+category = "日常"
+description = "海水与天空变成通透的海蓝色并提亮，沙滩和肤色保持温暖干净。海边出游的首选色调。"
+keywords = ["海边", "蓝色"]
+
+[i18n.zh-Hans.params.water]
+label = "水色"
+
+[i18n.zh-Hans.params.brightness]
+label = "亮度"

@@ -23,3 +23,14 @@ unit = "%"
 
 [wgsl]
 entry = "effect.wgsl"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "鱼眼"
+category = "扭曲"
+description = "超广角镜头的鼓起变形。"
+keywords = ["广角", "凸起"]
+
+[i18n.zh-Hans.params.strength]
+label = "强度"

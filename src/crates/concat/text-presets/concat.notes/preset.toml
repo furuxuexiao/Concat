@@ -9,3 +9,8 @@ fontFamily = "Shadows Into Light Two"
 fontWeight = 400
 fontSize = 0.09
 shadow = false
+
+# Simplified Chinese: what the Text page shows when the interface is in
+# 简体中文.
+[i18n.zh-Hans]
+name = "笔记"

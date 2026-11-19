@@ -1,0 +1,17 @@
+id = "concat.thai"
+name = "Thai"
+language = "Thai"
+order = 52
+
+[style]
+content = "สวัสดี"
+fontFamily = "Noto Sans Thai"
+fontWeight = 400
+fontSize = 0.1
+strokeWidth = 0.008
+strokeColor = "#000000"
+
+# Simplified Chinese: what the Text page shows when the interface is in
+# 简体中文.
+[i18n.zh-Hans]
+name = "泰文"

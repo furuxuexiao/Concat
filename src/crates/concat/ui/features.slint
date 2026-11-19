@@ -1,0 +1,21 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Concat contributors
+
+// Which of the editor's tools the window offers.
+//
+// Most cuts are made with a handful of tools: cutting, captions, a
+// voiceover, filters and transitions, colour, a cutout, export. The rest -
+// keyframes and their pane, masks and the smart brush, shapes, speed
+// curves, the Automation page that serves the API and MCP - are for the
+// edit that needs them, and a window that shows all of them to everyone
+// reads as harder than it is. They stay in the app, a switch away in
+// Settings > General ("Advanced tools"), and are hidden rather than
+// removed: the code, the commands, the project format and the API are
+// the same either way, and anything a project already uses - a key, a
+// mask, a curve - is still shown on the clip that has it, so it can be
+// seen and taken off.
+export global Features {
+    /// Settings > General's "Advanced tools". Off by default; the window
+    /// sets it from the saved preference at launch and on every change.
+    in-out property <bool> advanced: false;
+}

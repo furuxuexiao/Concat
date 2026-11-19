@@ -23,3 +23,14 @@ unit = "px"
 [wgsl]
 entry = "effect.wgsl"
 space = "display"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "半调网点"
+category = "复古"
+description = "画面变成黑白网点。"
+keywords = ["网点", "漫画"]
+
+[i18n.zh-Hans.params.size]
+label = "网点大小"

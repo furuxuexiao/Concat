@@ -26,10 +26,12 @@ locale is a JSON file that maps each key to your language:
   keep the keys, replace the values.
 - A key is dotted lowerCamelCase: the part of the interface the string
   belongs to (`common` for one used all over), then a name for it.
-- Only the app's own interface is translated. Effects, filters,
-  transitions and text presets are data, and always read in English, as
-  their manifests write them: their names, descriptions and knob labels
-  have no lines here.
+- Only the app's own interface is translated here. Effects, filters,
+  transitions and text presets are data and have no lines here: each
+  carries its own translations beside its English, as an `[i18n.<code>]`
+  table in its `effect.toml` or `preset.toml` (the built-ins speak
+  Simplified Chinese, `[i18n.zh-Hans]`), and reads in English in a
+  language it has no table for.
 - `{0}`, `{1}` and so on are filled in at run time: a count, a name, a
   file size, a shortcut. Keep them, and put them where your language wants them.
 - A key your file leaves out reads in English. Nothing breaks; the line is
@@ -84,6 +86,8 @@ string used in several, and the string after what it says: `export.tenBitColour`
 Write its English into `en.json` yourself; the source only holds the key.
 
 Names in effect manifests and text presets are never looked up, so add no
-key for them. Run `python3 scripts/locales.py` after adding strings;
+key for them: translate a package in its own `[i18n.<code>]` table (see
+`Words` in src/crates/concat-effects/src/manifest.rs, and the head of
+src/crates/concat/src/presets.rs). Run `python3 scripts/locales.py` after adding strings;
 `--check` fails on a key with no English, English written where a key
 belongs, or a stale line.

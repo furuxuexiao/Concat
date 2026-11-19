@@ -1,0 +1,84 @@
+format = 2
+
+[effect]
+id = "concat.beat-shake"
+name = "Beat Shake"
+kind = "effect"
+category = "Shake"
+order = 6
+intensity = "amount"
+description = "A hit on every beat at the tempo you set, each knocked a different way, from the moment the clip or layer starts."
+
+[[param]]
+key = "bpm"
+label = "Tempo"
+unit = "BPM"
+min = 40
+max = 240
+step = 1
+default = 120
+
+[[param]]
+key = "amount"
+label = "Amount"
+unit = "%"
+min = 0
+max = 100
+step = 1
+default = 50
+
+[[param]]
+key = "length"
+label = "Hit Length"
+unit = "%"
+min = 10
+max = 100
+step = 1
+default = 60
+
+[[param]]
+key = "punch"
+label = "Zoom Punch"
+unit = "%"
+min = 0
+max = 100
+step = 1
+default = 30
+
+[[param]]
+key = "blur"
+label = "Motion Blur"
+unit = "%"
+min = 0
+max = 100
+step = 1
+default = 50
+
+[wgsl]
+entry = "effect.wgsl"
+
+[card]
+moment = 0.04
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "节拍震动"
+category = "震动"
+description = "按设定的节拍每拍震动一下，每次方向不同，从片段或图层开始处起效。"
+keywords = ["卡点", "抖动"]
+
+[i18n.zh-Hans.params.bpm]
+label = "节拍速度"
+
+[i18n.zh-Hans.params.amount]
+label = "强度"
+
+[i18n.zh-Hans.params.length]
+label = "冲击时长"
+
+[i18n.zh-Hans.params.punch]
+label = "缩放冲击"
+
+[i18n.zh-Hans.params.blur]
+label = "动态模糊"

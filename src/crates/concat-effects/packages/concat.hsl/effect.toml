@@ -1,0 +1,392 @@
+format = 2
+
+[effect]
+id = "concat.hsl"
+name = "HSL"
+kind = "effect"
+category = "Color"
+order = 16
+description = "Eight bands of colour, each turned, saturated and brightened on its own: a sky bluer without touching a face, a lawn calmer without touching the sky."
+
+# Each band a hue, a saturation and a luminance slider, -100 to 100 and
+# 0 at rest, where the picture is as shot. All three work on the display
+# encoding - the picture as it is seen, not linear light - as a grading
+# panel does. Hue turns the band up to 30 degrees round the wheel: plus
+# towards the next band (red to orange, blue to purple), minus towards
+# the one before. Where a band would be turned past the next one round
+# by more than 0.8 of the gap between them, squeezing the colours
+# between them towards a fold, both are eased back, so the wheel
+# stretches or squeezes but never folds: a band only 30 degrees from a
+# neighbour turns at most 24 towards it while that neighbour rests, and
+# the full 30 away from it. Saturation pushes the band from a grey of
+# its own brightness at -100 towards double at 100: close to double for
+# a mid colour with room - typically some 1.9 times where its brightest
+# channel is at most 0.6, and never less than half again there - and at
+# least 1.35 times up to 0.75, least for bright yellows and yellow-
+# greens, whose luma sits closest to their brightest channel and so
+# leaves the least room before white. It always keeps the colour's
+# brightness, and eases off as a channel nears black or white, so
+# richness tapers near the ends of the range: a pale colour gains less,
+# mostly over its last quarter of brightness below white, and none at or
+# past white, and a near-pure colour, a channel already near black,
+# gains little. Luminance darkens it to 0.6 at -100 and lifts its
+# brightness 0.4 of the way to white at 100 - by scaling it while it has
+# room, keeping hue and saturation, and only then by blending towards
+# white, so a sky or a yellow already near white still brightens. A
+# colour between two band centres is moved by both, weighted by how near
+# it sits to each: a band's sliders carry their whole weight at its own
+# centre and none at its neighbours', so the hand-over has no seam.
+# Greys are left alone, and a pixel that is not a finite number is
+# passed through untouched and spreads no further than its eight
+# neighbours, which the renderer's own read reaches.
+
+[[param]]
+key = "red_hue"
+group = "Red"
+label = "Hue"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "red_sat"
+group = "Red"
+label = "Saturation"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "red_lum"
+group = "Red"
+label = "Luminance"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "orange_hue"
+group = "Orange"
+label = "Hue"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "orange_sat"
+group = "Orange"
+label = "Saturation"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "orange_lum"
+group = "Orange"
+label = "Luminance"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "yellow_hue"
+group = "Yellow"
+label = "Hue"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "yellow_sat"
+group = "Yellow"
+label = "Saturation"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "yellow_lum"
+group = "Yellow"
+label = "Luminance"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "green_hue"
+group = "Green"
+label = "Hue"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "green_sat"
+group = "Green"
+label = "Saturation"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "green_lum"
+group = "Green"
+label = "Luminance"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "cyan_hue"
+group = "Cyan"
+label = "Hue"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "cyan_sat"
+group = "Cyan"
+label = "Saturation"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "cyan_lum"
+group = "Cyan"
+label = "Luminance"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "blue_hue"
+group = "Blue"
+label = "Hue"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "blue_sat"
+group = "Blue"
+label = "Saturation"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "blue_lum"
+group = "Blue"
+label = "Luminance"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "purple_hue"
+group = "Purple"
+label = "Hue"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "purple_sat"
+group = "Purple"
+label = "Saturation"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "purple_lum"
+group = "Purple"
+label = "Luminance"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "magenta_hue"
+group = "Magenta"
+label = "Hue"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "magenta_sat"
+group = "Magenta"
+label = "Saturation"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "magenta_lum"
+group = "Magenta"
+label = "Luminance"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[wgsl]
+entry = "effect.wgsl"
+space = "display"
+
+[card]
+params = { "blue_sat" = 40, "orange_lum" = 15, "green_sat" = -30 }
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "HSL 调色"
+category = "色彩"
+description = "八个色彩通道，各自调整色相、饱和度和亮度：让天空更蓝而不影响人脸，让草地更沉静而不影响天空。"
+keywords = ["色相", "饱和度", "亮度", "调色", "八色"]
+
+[i18n.zh-Hans.params.red_hue]
+label = "色相"
+group = "红色"
+
+[i18n.zh-Hans.params.red_sat]
+label = "饱和度"
+group = "红色"
+
+[i18n.zh-Hans.params.red_lum]
+label = "亮度"
+group = "红色"
+
+[i18n.zh-Hans.params.orange_hue]
+label = "色相"
+group = "橙色"
+
+[i18n.zh-Hans.params.orange_sat]
+label = "饱和度"
+group = "橙色"
+
+[i18n.zh-Hans.params.orange_lum]
+label = "亮度"
+group = "橙色"
+
+[i18n.zh-Hans.params.yellow_hue]
+label = "色相"
+group = "黄色"
+
+[i18n.zh-Hans.params.yellow_sat]
+label = "饱和度"
+group = "黄色"
+
+[i18n.zh-Hans.params.yellow_lum]
+label = "亮度"
+group = "黄色"
+
+[i18n.zh-Hans.params.green_hue]
+label = "色相"
+group = "绿色"
+
+[i18n.zh-Hans.params.green_sat]
+label = "饱和度"
+group = "绿色"
+
+[i18n.zh-Hans.params.green_lum]
+label = "亮度"
+group = "绿色"
+
+[i18n.zh-Hans.params.cyan_hue]
+label = "色相"
+group = "青色"
+
+[i18n.zh-Hans.params.cyan_sat]
+label = "饱和度"
+group = "青色"
+
+[i18n.zh-Hans.params.cyan_lum]
+label = "亮度"
+group = "青色"
+
+[i18n.zh-Hans.params.blue_hue]
+label = "色相"
+group = "蓝色"
+
+[i18n.zh-Hans.params.blue_sat]
+label = "饱和度"
+group = "蓝色"
+
+[i18n.zh-Hans.params.blue_lum]
+label = "亮度"
+group = "蓝色"
+
+[i18n.zh-Hans.params.purple_hue]
+label = "色相"
+group = "紫色"
+
+[i18n.zh-Hans.params.purple_sat]
+label = "饱和度"
+group = "紫色"
+
+[i18n.zh-Hans.params.purple_lum]
+label = "亮度"
+group = "紫色"
+
+[i18n.zh-Hans.params.magenta_hue]
+label = "色相"
+group = "洋红"
+
+[i18n.zh-Hans.params.magenta_sat]
+label = "饱和度"
+group = "洋红"
+
+[i18n.zh-Hans.params.magenta_lum]
+label = "亮度"
+group = "洋红"

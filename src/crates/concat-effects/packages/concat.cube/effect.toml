@@ -4,10 +4,18 @@ format = 2
 id = "concat.cube"
 name = "Cube"
 kind = "transition"
-category = "Light"
+category = "Spin"
 order = 14
-description = "The outgoing shot rotates away like a cube face as the incoming one rotates into view."
+description = "The two shots are neighbouring faces of a box that turns a quarter of the way round, with the turning-away face falling into shade."
 
 [transition]
-entry = "effect.wgsl"
 fallback = "cross-fade"
+entry = "effect.wgsl"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "立方体"
+category = "旋转"
+description = "两个镜头是一个盒子相邻的两面，盒子转过四分之一圈，转走的一面渐渐没入阴影。"
+keywords = ["3D", "翻转"]

@@ -18,3 +18,14 @@ unit = "dB"
 
 [ffmpeg]
 chain = "loudnorm=I={fixed(target, 1)}:TP=-1.5:LRA=11"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "响度统一"
+category = "人声优化"
+description = "把整个片段统一到同一响度，符合广播和各平台的要求。"
+keywords = ["音量", "标准化", "响度"]
+
+[i18n.zh-Hans.params.target]
+label = "目标响度"

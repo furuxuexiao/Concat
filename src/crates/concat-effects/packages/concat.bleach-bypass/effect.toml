@@ -11,3 +11,11 @@ description = "The silver-retention film process: colour washed out, contrast pu
 [wgsl]
 entry = "effect.wgsl"
 space = "display"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "漂白"
+category = "电影感"
+description = "保留银盐的胶片冲洗工艺：色彩褪淡，对比强烈。"
+keywords = ["银盐", "跳漂白"]

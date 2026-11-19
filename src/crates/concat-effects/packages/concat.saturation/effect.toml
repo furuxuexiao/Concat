@@ -26,3 +26,13 @@ space = "display"
 # At its default the picture is as shot; the card shows a push.
 [card]
 params = { amount = 50 }
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "饱和度"
+category = "色彩"
+description = "以每个像素自身亮度为基准，让色彩更浓郁或更灰。"
+
+[i18n.zh-Hans.params.amount]
+label = "饱和度"

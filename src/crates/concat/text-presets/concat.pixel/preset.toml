@@ -9,3 +9,8 @@ fontFamily = "Pixelify Sans"
 fontWeight = 400
 fontSize = 0.09
 color = "#7dff6a"
+
+# Simplified Chinese: what the Text page shows when the interface is in
+# 简体中文.
+[i18n.zh-Hans]
+name = "像素"

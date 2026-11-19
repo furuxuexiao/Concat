@@ -1,0 +1,46 @@
+format = 2
+
+[effect]
+id = "concat.linen"
+name = "Linen"
+kind = "filter"
+category = "Everyday"
+order = 18
+intensity = "matte"
+description = "Whitewash's warm twin: the same soft matte with cream in the whites and a little gold in the middle. Interiors and morning light."
+
+[[param]]
+key = "matte"
+label = "Matte"
+min = 0
+max = 100
+default = 60
+step = 1
+unit = "%"
+
+[[param]]
+key = "warmth"
+label = "Warmth"
+min = 0
+max = 100
+default = 50
+step = 1
+unit = "%"
+
+[wgsl]
+entry = "effect.wgsl"
+space = "display"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "亚麻"
+category = "日常"
+description = "“白墙”的暖色孪生：同样柔和的哑光，白色带奶油色，中间调带一点金色。适合室内和晨光。"
+keywords = ["奶油", "暖白"]
+
+[i18n.zh-Hans.params.matte]
+label = "哑光"
+
+[i18n.zh-Hans.params.warmth]
+label = "暖度"

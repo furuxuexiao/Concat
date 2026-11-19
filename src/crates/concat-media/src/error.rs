@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// SPDX-FileCopyrightText: 2026 Jareer Abdullah and Concat contributors
+// SPDX-FileCopyrightText: 2026 Jareer Abdullah
 
 //! What can go wrong when talking to FFmpeg.
 
@@ -113,6 +113,14 @@ pub enum Error {
         what: &'static str,
         /// Its name.
         name: String,
+    },
+
+    /// Export options that were refused before any file was touched - a
+    /// bitrate, sample rate, frame rate or width out of range.
+    #[error("invalid export options: {detail}")]
+    InvalidOptions {
+        /// What was out of range.
+        detail: String,
     },
 }
 

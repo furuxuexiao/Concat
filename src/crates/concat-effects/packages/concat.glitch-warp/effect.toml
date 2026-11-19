@@ -21,3 +21,14 @@ unit = "%"
 entry = "effect.wgsl"
 xfade = "pixelize"
 fallback = "cross-fade"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "故障扭曲"
+category = "故障"
+description = "带色差的切片撕裂和数字像素位移转场。"
+keywords = ["故障", "像素"]
+
+[i18n.zh-Hans.params.amount]
+label = "强度"

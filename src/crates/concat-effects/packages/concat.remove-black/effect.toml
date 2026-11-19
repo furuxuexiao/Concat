@@ -1,0 +1,54 @@
+format = 2
+
+[effect]
+id = "concat.remove-black"
+name = "Remove Black"
+kind = "effect"
+category = "Cutout"
+order = 60
+intensity = "strength"
+description = "Takes out a black background - fire, sparks, smoke, light leaks or a logo shot on black - keeping its glow as see-through light, with no dark fringe, over whatever is beneath and in an export with transparency."
+
+# The level of the picture taken for black, so a lifted black, grain and a
+# compressed stream's noise go with it.
+[[param]]
+key = "threshold"
+label = "Black level"
+min = 0
+max = 50
+default = 4
+step = 1
+unit = "%"
+
+# How solid what stays is: at 100 % a glow covers what is beneath by as
+# much as it is bright, the way light adds to light; more makes the dim
+# parts more solid.
+[[param]]
+key = "strength"
+label = "Strength"
+min = 50
+max = 400
+default = 100
+step = 5
+unit = "%"
+
+[wgsl]
+entry = "effect.wgsl"
+
+# The still before a black backdrop, for the key to take out.
+[card]
+screen = "#000000"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "去黑底"
+category = "抠像"
+description = "去除黑色背景——黑底拍摄的火焰、火花、烟雾、漏光或标志——把光晕保留为透明的光，没有黑边，可叠加在任何画面上，也可导出为带透明的文件。"
+keywords = ["去黑", "黑底", "抠像", "叠加"]
+
+[i18n.zh-Hans.params.threshold]
+label = "黑位"
+
+[i18n.zh-Hans.params.strength]
+label = "强度"

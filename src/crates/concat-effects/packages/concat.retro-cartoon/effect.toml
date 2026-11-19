@@ -29,3 +29,17 @@ unit = "%"
 [wgsl]
 entry = "effect.wgsl"
 space = "display"
+
+# Simplified Chinese: what the window shows when the interface is in
+# 简体中文. The English above stays the package's own words.
+[i18n.zh-Hans]
+name = "复古漫画"
+category = "风格化"
+description = "平涂的色块加墨线描边，像印刷的漫画。"
+keywords = ["卡通", "漫画"]
+
+[i18n.zh-Hans.params.levels]
+label = "色阶"
+
+[i18n.zh-Hans.params.ink]
+label = "描边"
