@@ -36,6 +36,7 @@
   "captions.noSubtitlesInFile": "El archivo no tiene subtítulos",
   "captions.noVoiceOnTimeline": "Ningún clip de la línea de tiempo tiene sonido",
   "captions.nothingSaidClip": "No se dijo nada en ese clip",
+  "captions.nothingSaidTimeline": "No se dijo nada en ningún clip de la línea de tiempo",
   "captions.nothingToCaptionYet": "Nothing to caption yet",
   "captions.oneTitlePerPhrase": "Un título por frase hablada, ajustado al ritmo de las palabras, en la primera pista con espacio.",
   "captions.oneTitlePerSentence": "Un título por frase, mantenido el tiempo que lleve leerlo, uno tras otro en el primer carril con hueco.",

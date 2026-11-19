@@ -36,6 +36,7 @@
   "captions.noSubtitlesInFile": "Tệp không có phụ đề",
   "captions.noVoiceOnTimeline": "Không có clip nào trên dòng thời gian có âm thanh",
   "captions.nothingSaidClip": "Không có lời nào trong clip đó",
+  "captions.nothingSaidTimeline": "Không có lời nào trong các clip trên dòng thời gian",
   "captions.nothingToCaptionYet": "Chưa có gì để tạo phụ đề",
   "captions.oneTitlePerPhrase": "Mỗi cụm từ được nói là một tiêu đề, cắt theo đúng nhịp của từng từ, trên làn đầu tiên còn chỗ.",
   "captions.oneTitlePerSentence": "Mỗi câu một tiêu đề, giữ đủ lâu để đọc, nối tiếp nhau trên làn đầu tiên còn chỗ.",

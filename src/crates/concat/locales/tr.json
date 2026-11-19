@@ -36,6 +36,7 @@
   "captions.noSubtitlesInFile": "Dosyada altyazı yok",
   "captions.noVoiceOnTimeline": "Zaman çizelgesinde sesi olan klip yok",
   "captions.nothingSaidClip": "O klipte hiçbir şey söylenmedi",
+  "captions.nothingSaidTimeline": "Zaman çizelgesindeki hiçbir klipte bir şey söylenmedi",
   "captions.nothingToCaptionYet": "Nothing to caption yet",
   "captions.oneTitlePerPhrase": "Söylenen her cümle için bir yazı, kelimelerin kendi zamanlamasıyla, yeri olan ilk şeritte.",
   "captions.oneTitlePerSentence": "One title per sentence, held for as long as it takes to read, one after another on the first lane with room.",

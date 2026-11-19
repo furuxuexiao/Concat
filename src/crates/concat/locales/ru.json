@@ -36,6 +36,7 @@
   "captions.noSubtitlesInFile": "В файле нет субтитров",
   "captions.noVoiceOnTimeline": "На таймлайне нет клипов со звуком",
   "captions.nothingSaidClip": "В этом клипе ничего не сказано",
+  "captions.nothingSaidTimeline": "Ни в одном клипе на таймлайне ничего не сказано",
   "captions.nothingToCaptionYet": "Пока нечего субтитровать",
   "captions.oneTitlePerPhrase": "Один титр на каждую произнесённую фразу, в такт словам, на первой свободной дорожке.",
   "captions.oneTitlePerSentence": "Один титр на предложение, держится столько, сколько нужно, чтобы прочитать, один за другим на первой свободной дорожке.",

@@ -36,6 +36,7 @@
   "captions.noSubtitlesInFile": "ไฟล์นี้ไม่มีคำบรรยาย",
   "captions.noVoiceOnTimeline": "ไม่มีคลิปที่มีเสียงบนไทม์ไลน์",
   "captions.nothingSaidClip": "ไม่มีเสียงพูดในคลิปนั้น",
+  "captions.nothingSaidTimeline": "ไม่มีเสียงพูดในคลิปใดบนไทม์ไลน์",
   "captions.nothingToCaptionYet": "ยังไม่มีอะไรให้ใส่คำบรรยาย",
   "captions.oneTitlePerPhrase": "ไตเติลหนึ่งรายการต่อหนึ่งวลีที่พูด ตัดตามจังหวะของคำ วางบนเลนแรกที่มีที่ว่าง",
   "captions.oneTitlePerSentence": "ไตเติลหนึ่งรายการต่อหนึ่งประโยค แสดงค้างไว้นานพอให้อ่านทัน เรียงต่อกันบนเลนแรกที่มีที่ว่าง",

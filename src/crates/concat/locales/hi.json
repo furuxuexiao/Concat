@@ -36,6 +36,7 @@
   "captions.noSubtitlesInFile": "इस फ़ाइल में कोई सबटाइटल नहीं है",
   "captions.noVoiceOnTimeline": "टाइमलाइन पर किसी क्लिप में आवाज़ नहीं है",
   "captions.nothingSaidClip": "उस क्लिप में कुछ नहीं बोला गया",
+  "captions.nothingSaidTimeline": "टाइमलाइन की किसी भी क्लिप में कुछ नहीं बोला गया",
   "captions.nothingToCaptionYet": "अभी कैप्शन बनाने के लिए कुछ नहीं है",
   "captions.oneTitlePerPhrase": "बोले गए हर वाक्यांश के लिए एक टाइटल, शब्दों की अपनी टाइमिंग पर कटा हुआ, खाली जगह वाली पहली लेन पर।",
   "captions.oneTitlePerSentence": "हर वाक्य के लिए एक टाइटल, जितनी देर पढ़ने में लगे उतनी देर तक, एक के बाद एक, खाली जगह वाली पहली लेन पर।",

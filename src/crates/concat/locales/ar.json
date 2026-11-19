@@ -36,6 +36,7 @@
   "captions.noSubtitlesInFile": "لا يحتوي الملف على ترجمات",
   "captions.noVoiceOnTimeline": "لا يوجد مقطع بصوت في المخطط الزمني",
   "captions.nothingSaidClip": "لم يُقَل شيء في ذلك المقطع",
+  "captions.nothingSaidTimeline": "لم يُقَل شيء في أي مقطع على المخطط الزمني",
   "captions.nothingToCaptionYet": "لا يوجد ما يُضاف له تسميات توضيحية بعد",
   "captions.oneTitlePerPhrase": "عنوان لكل عبارة منطوقة، مقصوص على توقيت الكلمات نفسها، على أول مسار فيه متّسع.",
   "captions.oneTitlePerSentence": "عنوان لكل جملة، يبقى طوال المدة اللازمة لقراءته، واحدًا تلو الآخر على أول مسار فيه متّسع.",

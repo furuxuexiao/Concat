@@ -36,6 +36,7 @@
   "captions.noSubtitlesInFile": "このファイルには字幕がありません",
   "captions.noVoiceOnTimeline": "音声のあるクリップがタイムラインにありません",
   "captions.nothingSaidClip": "そのクリップには発話がありませんでした",
+  "captions.nothingSaidTimeline": "タイムライン上のどのクリップにも発話がありませんでした",
   "captions.nothingToCaptionYet": "字幕を付けるものがまだありません",
   "captions.oneTitlePerPhrase": "発話されたフレーズごとにタイトルを一つ、言葉のタイミングどおりに、空いている最初のレーンへ。",
   "captions.oneTitlePerSentence": "1 文につき 1 つのタイトルを、読み終えるまでの長さで、空きのある最初のレーンに順に並べます。",

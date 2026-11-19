@@ -36,6 +36,7 @@
   "captions.noSubtitlesInFile": "У файлі немає субтитрів",
   "captions.noVoiceOnTimeline": "На часовій шкалі немає кліпів зі звуком",
   "captions.nothingSaidClip": "У цьому кліпі нічого не сказано",
+  "captions.nothingSaidTimeline": "У жодному кліпі на таймлайні нічого не сказано",
   "captions.nothingToCaptionYet": "Поки немає тексту для субтитрів",
   "captions.oneTitlePerPhrase": "Один титр на кожну вимовлену фразу, точно за таймінгом слів, на першій вільній доріжці.",
   "captions.oneTitlePerSentence": "Один титр на речення, рівно стільки, скільки треба, щоб його прочитати, один за одним на першій вільній доріжці.",

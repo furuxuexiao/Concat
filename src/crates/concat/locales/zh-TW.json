@@ -36,6 +36,7 @@
   "captions.noSubtitlesInFile": "此檔案中沒有字幕",
   "captions.noVoiceOnTimeline": "時間軸上沒有帶聲音的片段",
   "captions.nothingSaidClip": "該片段中沒有語音",
+  "captions.nothingSaidTimeline": "時間軸上的所有片段中都沒有語音",
   "captions.nothingToCaptionYet": "尚無可加上字幕的內容",
   "captions.oneTitlePerPhrase": "每個口說片語一個標題，依字詞本身的時間切分，放在第一條有空位的軌道上。",
   "captions.oneTitlePerSentence": "每句一個標題，停留足夠閱讀的時間，依序排列在第一條有空位的軌道上。",

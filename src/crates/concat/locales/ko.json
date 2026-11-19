@@ -36,6 +36,7 @@
   "captions.noSubtitlesInFile": "파일에 자막이 없습니다",
   "captions.noVoiceOnTimeline": "타임라인에 소리가 있는 클립이 없습니다",
   "captions.nothingSaidClip": "그 클립에는 말소리가 없습니다",
+  "captions.nothingSaidTimeline": "타임라인의 어떤 클립에도 말소리가 없습니다",
   "captions.nothingToCaptionYet": "Nothing to caption yet",
   "captions.oneTitlePerPhrase": "말한 구절마다 자막 하나씩, 말의 타이밍에 맞춰, 자리가 있는 첫 레인에 놓습니다.",
   "captions.oneTitlePerSentence": "One title per sentence, held for as long as it takes to read, one after another on the first lane with room.",

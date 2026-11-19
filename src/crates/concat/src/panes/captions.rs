@@ -702,8 +702,18 @@ impl CaptionsPane {
             .fold(f64::INFINITY, f64::min);
         let lines = merge_lines(gathered);
         if lines.is_empty() {
-            log::info!("captions: placed none · nothing was said in the clip");
-            studio.notify(&t("captions.nothingSaidClip"), true);
+            // A run over several clips heard nothing on the timeline, not
+            // in "that clip".
+            log::info!(
+                "captions: placed none · nothing was said in {} clips",
+                spans.len()
+            );
+            let said = if spans.len() > 1 {
+                t("captions.nothingSaidTimeline")
+            } else {
+                t("captions.nothingSaidClip")
+            };
+            studio.notify(&said, true);
             return;
         }
         let timeline = studio.timeline();

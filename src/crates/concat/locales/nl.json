@@ -36,6 +36,7 @@
   "captions.noSubtitlesInFile": "Het bestand bevat geen ondertitels",
   "captions.noVoiceOnTimeline": "Geen clip op de tijdlijn heeft geluid",
   "captions.nothingSaidClip": "Er wordt niets gezegd in die clip",
+  "captions.nothingSaidTimeline": "Er wordt niets gezegd in de clips op de tijdlijn",
   "captions.nothingToCaptionYet": "Nog niets om te ondertitelen",
   "captions.oneTitlePerPhrase": "Eén titel per gesproken zin, getimed op de woorden zelf, op het eerste spoor met ruimte.",
   "captions.oneTitlePerSentence": "Eén titel per zin, zo lang in beeld als nodig is om hem te lezen, na elkaar op het eerste spoor met ruimte.",

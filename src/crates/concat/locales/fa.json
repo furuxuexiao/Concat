@@ -36,6 +36,7 @@
   "captions.noSubtitlesInFile": "این فایل هیچ زیرنویسی ندارد",
   "captions.noVoiceOnTimeline": "هیچ کلیپی در خط زمان صدا ندارد",
   "captions.nothingSaidClip": "در آن کلیپ چیزی گفته نشده است",
+  "captions.nothingSaidTimeline": "در هیچ کلیپی روی خط زمانی چیزی گفته نشده است",
   "captions.nothingToCaptionYet": "هنوز چیزی برای زیرنویس کردن وجود ندارد",
   "captions.oneTitlePerPhrase": "برای هر Phrase گفته‌شده یک عنوان ساخته می‌شود، با Timing خود کلمات، روی اولین لاین دارای فضای کافی.",
   "captions.oneTitlePerSentence": "برای هر جمله یک عنوان ساخته می‌شود و به‌اندازه زمان لازم برای خواندن نمایش داده می‌شود؛ پشت سر هم روی اولین لاین دارای فضای کافی.",
