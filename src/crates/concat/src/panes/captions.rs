@@ -352,7 +352,7 @@ impl CaptionsPane {
                         }
                     }
                     // Asked for: the sheet is already on its way down.
-                    Err(error) if error.contains("cancel") => {
+                    Err(error) if was_cancelled(&error) => {
                         self.queue.clear();
                         self.gathered.clear();
                         self.open = false;
@@ -881,6 +881,14 @@ impl CaptionsPane {
     /// One clip through the transcriber on a worker; `rank` its place
     /// among the run's clips. The sheet's list shows it while it runs.
     fn transcribe(&mut self, studio: &mut Studio, clip: Clip, rank: usize) {
+        // A cancelled run still winding down holds the transcriber: a run
+        // started now would be refused, and its refusal land as the old
+        // run's result. Said instead, and nothing started.
+        if studio.host.transcriber.is_busy() {
+            self.queue.clear();
+            self.message = t("captions.autoAlreadyRunning");
+            return;
+        }
         self.clip = Some(clip.id.clone());
         self.chosen_with = studio.sole_selection();
         let Some(media) = studio.project().media_by_id(&clip.media_id).cloned() else {
@@ -1410,6 +1418,17 @@ impl Heard {
             (other.start, other.start + other.duration),
         )
     }
+}
+
+/// What the transcriber returns when its run is cancelled
+/// (`concat_speech::transcribe`).
+const CANCELLED: &str = "transcription cancelled";
+
+/// Whether a run's error is its cancel, asked for: that error exactly. The
+/// transcriber's "a transcription is already running - wait for it or
+/// cancel it first" also says "cancel", and is not one.
+fn was_cancelled(error: &str) -> bool {
+    error == CANCELLED
 }
 
 /// Seconds two spans share.
@@ -2120,6 +2139,18 @@ mod tests {
             ],
         );
         assert_eq!(rank(&within, "vo"), Some(0));
+    }
+
+    /// Only the transcriber's cancel reads as one: its "already running"
+    /// refusal, which says "cancel" too, is an error to show.
+    #[test]
+    fn a_busy_transcriber_is_not_read_as_a_cancel() {
+        let gate = std::sync::Arc::new(concat_host::SingleFlight::new());
+        let _running = gate.begin("transcription").expect("first run");
+        let busy = gate.begin("transcription").err().expect("second refused");
+        assert!(busy.contains("cancel"));
+        assert!(!super::was_cancelled(&busy));
+        assert!(super::was_cancelled("transcription cancelled"));
     }
 
     /// What the timeline knows of a clip's sound says whether it is a
