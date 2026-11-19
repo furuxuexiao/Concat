@@ -7,7 +7,7 @@
   "captions.autoAlreadyRunning": "字幕正在生成中，请查看面板。",
   "captions.autoDetect": "自动检测",
   "captions.autoNothingWithSound": "时间线上没有带声音的片段可识别字幕。",
-  "captions.autoOnlyMusic": "时间线上只有音乐。如仍要为其生成字幕，请先选中该片段。",
+  "captions.autoOnlyMusic": "时间线上只有音乐。如仍要为其生成字幕，请先选中要识别的片段。",
   "captions.autoStarted": "正在根据人声生成字幕…",
   "captions.captions": "字幕",
   "captions.centre": "中心",

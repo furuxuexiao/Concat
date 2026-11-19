@@ -7,7 +7,7 @@
   "captions.autoAlreadyRunning": "字幕正在產生中，請查看面板。",
   "captions.autoDetect": "自動偵測",
   "captions.autoNothingWithSound": "時間軸上沒有帶聲音的片段可辨識字幕。",
-  "captions.autoOnlyMusic": "時間軸上只有音樂。如仍要為其產生字幕，請先選取該片段。",
+  "captions.autoOnlyMusic": "時間軸上只有音樂。如仍要為其產生字幕，請先選取要辨識的片段。",
   "captions.autoStarted": "正在根據人聲產生字幕…",
   "captions.captions": "字幕",
   "captions.centre": "中心",
