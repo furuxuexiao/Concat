@@ -433,11 +433,11 @@ impl ExportPane {
                 Advice::TooSmall(_) if platform == Platform::Bilibili4k => {
                     tf("export.adviceNot4k", &[&name, &width.min(height)])
                 }
-                Advice::TooSmall(lines) => tf(
+                Advice::TooSmall(short) => tf(
                     "export.adviceTooSmall",
-                    &[&name, &lines, &width.min(height)],
+                    &[&name, &short, &width.min(height)],
                 ),
-                Advice::TooLarge(lines) => tf("export.adviceTooLarge", &[&name, &lines]),
+                Advice::TooLarge(short) => tf("export.adviceTooLarge", &[&name, &short]),
                 Advice::EightBitOnly => tf("export.adviceEightBit", &[&name]),
             })
             .collect::<Vec<_>>()
@@ -1015,10 +1015,10 @@ mod tests {
         assert!(pane.ten_bit && !pane.sdr, "YouTube keeps ten bits and HDR");
     }
 
-    /// Douyin turns a deep sheet 8-bit SDR and says so; YouTube picked
-    /// after it puts the sheet's own ten bits and HDR back rather than
-    /// leaving them off without a word, and Bilibili after Douyin keeps
-    /// the note. "None" puts them back too.
+    /// Douyin turns a deep sheet 8-bit SDR and says so; YouTube or B站 4K
+    /// picked after it puts the sheet's own ten bits and HDR back rather
+    /// than leaving them off without a word, and Bilibili 1080P after
+    /// Douyin keeps the note. "None" puts them back too.
     #[test]
     fn youtube_after_douyin_puts_hdr_back() {
         let deep = || ExportPane {
@@ -1047,6 +1047,16 @@ mod tests {
         pick(&mut pane, Platform::Douyin, true);
         pick(&mut pane, Platform::Bilibili, false);
         assert!(pane.preset_dropped_deep, "the note carries over");
+
+        // Bilibili's 4K takes HDR10 and HLG at 10 bits: HDR is back, and
+        // no note says otherwise.
+        let mut pane = deep();
+        pick(&mut pane, Platform::Douyin, true);
+        pick(&mut pane, Platform::Bilibili4k, false);
+        assert!(!pane.sdr && pane.ten_bit && !pane.preset_dropped_deep);
+        let mut pane = deep();
+        pick(&mut pane, Platform::Bilibili4k, true);
+        assert!(!pane.sdr && pane.ten_bit && !pane.preset_dropped_deep);
 
         let mut pane = deep();
         pick(&mut pane, Platform::Douyin, true);

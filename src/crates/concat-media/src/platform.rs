@@ -7,8 +7,8 @@
 //! file the platform takes without a second encode, and does not want to
 //! look up what that is. A preset is that lookup: the codec, the frame
 //! rate and the bitrate a platform's upload takes, and what about the
-//! frame it asks for - upright or wide, how many lines - so the sheet can
-//! say when the edit is not cut for where it is going.
+//! frame it asks for - upright or wide, how large, 8-bit SDR or HDR - so
+//! the sheet can say when the edit is not cut for where it is going.
 //!
 //! The numbers are the platforms' own where they publish them, and the
 //! commonly published upload values where they do not:
@@ -17,10 +17,12 @@
 //!   than 1920 x 1080, 8-bit 4:2:0, at most 60 fps; above that the upload
 //!   is encoded again (Bilibili creator centre, "视频上传清晰度规则补充说明",
 //!   https://www.bilibili.com/opus/123109117214361042).
-//! - Bilibili 4K: 20000 kbps in H.264, the short side at least 1600, up to
-//!   4096 x 2160 and 120 fps (Bilibili's open platform,
+//! - Bilibili 4K: 20000 kbps, the short side at least 1600, up to
+//!   4096 x 2160 and 120 fps, and either 8-bit SDR (BT.709) or HDR10 (PQ)
+//!   or HLG at 10 bits (Bilibili's open platform, 推荐色彩空间,
 //!   https://open.bilibili.com/doc/4/0c532c6a-e6fb-0aff-8021-905ae2409095,
-//!   and its support assistant's 4K guidance).
+//!   and its support assistant's 4K guidance), so an HDR edit keeps its
+//!   HDR.
 //! - Douyin: upright video, 720p or more (Douyin open platform,
 //!   https://open.douyin.com/platform/resource/docs/ability/content-management/douyin-publish-solution);
 //!   1080 x 1920 in H.264 at 8 Mbps or more is the commonly published
@@ -103,10 +105,12 @@ pub enum Advice {
         /// The edit's own shape.
         edit: Shape,
     },
-    /// Fewer lines than the platform shows well, as the short side.
+    /// Smaller than the platform shows well: the short side, in pixels,
+    /// it wants at least.
     TooSmall(u32),
-    /// More lines than this preset is for, as the short side: the upload
-    /// is scaled down, and another preset is the one for it.
+    /// Larger than this preset is for: the short side, in pixels, it is
+    /// for at most. The upload is scaled down, and another preset is the
+    /// one for it.
     TooLarge(u32),
     /// A ten-bit or HDR file, which the platform encodes again to 8-bit
     /// SDR or refuses.
@@ -154,7 +158,7 @@ impl Platform {
         }
     }
 
-    /// The most lines this preset is for, as the short side.
+    /// The largest frame this preset is for, as the short side.
     pub fn max_short_side(self) -> u32 {
         match self {
             Platform::Bilibili4k => 2160,
@@ -173,9 +177,11 @@ impl Platform {
 
     /// Whether the platform takes only 8-bit SDR.
     pub fn eight_bit_only(self) -> bool {
-        // Bilibili's and Channels' rules say so; Douyin's 8-bit H.264 is
-        // what every upright upload is played as. YouTube takes HDR.
-        !matches!(self, Platform::YouTube)
+        // Bilibili's 1080P is 8-bit 4:2:0 and Channels takes no HDR, by
+        // their own rules; Douyin's 8-bit H.264 is what every upright
+        // upload is played as. Bilibili's 4K takes HDR10 (PQ) or HLG at
+        // 10 bits (its open platform's 推荐色彩空间), and YouTube takes HDR.
+        !matches!(self, Platform::YouTube | Platform::Bilibili4k)
     }
 
     /// The rate a timeline at `own` frames a second is exported at: its
@@ -300,7 +306,8 @@ mod tests {
 
     /// A wide 1080p edit is what Bilibili wants; an upright one is told
     /// it is the wrong way round, a 720p one that it is small, and a 4K
-    /// one that Bilibili's 1080P scales it down.
+    /// one that Bilibili's 1080P scales it down - and, ten-bit, that the
+    /// 1080P takes only 8-bit SDR, where the 4K takes it as it is.
     #[test]
     fn bilibili_advice() {
         assert!(Platform::Bilibili.advise(1920, 1080, false).is_empty());
@@ -327,6 +334,10 @@ mod tests {
             vec![Advice::TooLarge(1080), Advice::EightBitOnly]
         );
         assert!(Platform::Bilibili4k.advise(3840, 2160, false).is_empty());
+        // Bilibili's 4K takes HDR10 and HLG at 10 bits: nothing to say.
+        assert!(!Platform::Bilibili4k.eight_bit_only());
+        assert!(Platform::Bilibili4k.advise(3840, 2160, true).is_empty());
+        assert!(Platform::Bilibili.eight_bit_only());
         assert_eq!(
             Platform::Bilibili4k.advise(1920, 1080, false),
             vec![Advice::TooSmall(1600)]
