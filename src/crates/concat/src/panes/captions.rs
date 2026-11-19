@@ -313,20 +313,25 @@ impl CaptionsPane {
                 self.open = false;
                 self.queue.clear();
                 self.gathered.clear();
+                // A result already on its way is the cancelled run's: with
+                // no subject it is dropped, not placed.
+                self.subject = None;
             }
             CaptionsMsg::Progress(stage) => self.pace.report(stage),
             CaptionsMsg::Finished(result) => {
+                // A run cancelled as it finished: Cancel took its subject,
+                // and what it heard - or why it failed - is not wanted.
+                let Some(subject) = self.subject.take() else {
+                    log::info!("captions: a cancelled run finished · dropped");
+                    return;
+                };
                 self.running = false;
-                let subject = self.subject.take();
-                if let (Ok(_), Some(subject)) = (&result, &subject) {
+                if result.is_ok() {
                     self.timings
                         .keep(&subject.model, self.pace.learned(subject.windows));
                 }
                 match result {
                     Ok(segments) => {
-                        let Some(subject) = subject else {
-                            return;
-                        };
                         let lines =
                             caption_lines_of(&segments, subject.script.as_deref(), &subject.rules)
                                 .into_iter()
