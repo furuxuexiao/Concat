@@ -57,8 +57,9 @@ pub enum CaptionsMsg {
     Open,
     /// The tray's "Auto captions": no sheet to fill in. The selected clip's
     /// voice, else the longest clip with sound, transcribed at once with
-    /// the installed model, in Simplified Chinese under a Chinese
-    /// interface unless another language was picked, lines cut by the
+    /// the installed model, in Simplified Chinese under a Simplified
+    /// Chinese interface and Traditional under 繁體中文, unless another
+    /// language was picked, lines cut by the
     /// frame; see [`CaptionsPane::auto_caption`].
     AutoCaption,
     /// A clip's menu: the sheet on that clip's voice.
@@ -551,9 +552,10 @@ impl CaptionsPane {
     /// is the selected one when it has sound, else the longest clip with
     /// sound - the voice of a talking-head cut, rather than whichever
     /// sound happens to start first. The language is the one picked in the
-    /// sheet before, else Simplified Chinese under a Chinese interface
-    /// (whisper is then prompted, and its words put, in Simplified; see
-    /// concat_speech::hans), else whisper's to hear. Lines are cut as the
+    /// sheet before, else Chinese under a Chinese interface - Simplified
+    /// under 简体中文, Traditional under 繁體中文 (whisper is then prompted,
+    /// and its words put, in those characters; see concat_speech::hans),
+    /// else whisper's to hear. Lines are cut as the
     /// sheet's saved choice says, by the frame unless changed, and end
     /// without a comma or full stop unless that was turned off. With no
     /// transcriber installed, or nothing with sound on the timeline, the
@@ -1185,12 +1187,14 @@ fn auto_subject(selected: Option<&str>, candidates: &[(String, f64)]) -> Option<
 }
 
 /// The language "Auto captions" asks for when the sheet has none picked:
-/// Simplified Chinese under a Simplified Chinese interface, else none -
-/// whisper's to hear. `saved` is the sheet's remembered pick, which wins.
+/// Simplified Chinese under a Simplified Chinese interface, Traditional
+/// under a Traditional one (繁體中文, `zh-TW`), else none - whisper's to
+/// hear. `saved` is the sheet's remembered pick, which wins.
 fn auto_language(interface: &str, saved: Option<&str>) -> Option<String> {
     match saved {
         Some(code) => Some(code.to_owned()),
         None if interface == "zh-Hans" => Some("zh".to_owned()),
+        None if matches!(interface, "zh-TW" | "zh-Hant" | "zh-HK") => Some("zh-Hant".to_owned()),
         None => None,
     }
 }
@@ -1534,6 +1538,26 @@ mod tests {
         );
         // What it asks for is a row the sheet's list has.
         assert!(super::language_row(super::auto_language("zh-Hans", None).as_deref()) > 0);
+    }
+
+    /// Under 繁體中文 the captions come out in Traditional characters,
+    /// unless the sheet's pick says otherwise.
+    #[test]
+    fn auto_captions_asks_for_traditional_under_a_traditional_interface() {
+        assert_eq!(
+            super::auto_language("zh-TW", None).as_deref(),
+            Some("zh-Hant")
+        );
+        assert_eq!(
+            super::auto_language("zh-TW", Some("zh")).as_deref(),
+            Some("zh")
+        );
+        let traditional = super::auto_language("zh-TW", None);
+        assert_eq!(
+            super::language_row(traditional.as_deref()),
+            super::language_row(Some("zh-Hant"))
+        );
+        assert!(super::language_row(traditional.as_deref()) > 0);
     }
 
     /// Row 0 is "Auto-detect", and a language's row reads back as the
